@@ -1,0 +1,14 @@
+customtkinter>=5.2
+Pillow>=10.0
+pytesseract>=0.3.10
+pandas>=2.0
+requests>=2.31
+beautifulsoup4>=4.12
+python-dotenv>=1.0
+rich>=13.0
+ollama>=0.3
+anthropic>=0.25
+openai>=1.30
+pypdf>=4.0
+python-docx>=1.1
+reportlab>=4.0

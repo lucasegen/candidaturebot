@@ -1,0 +1,58 @@
+{
+  "profil": {
+    "prenom": "",
+    "nom": "",
+    "telephone": "",
+    "linkedin": "",
+    "poste_recherche": "",
+    "lettre_type": ""
+  },
+  "recherche": {
+    "mots_cles": [],
+    "localisation": "Paris",
+    "rayon_km": 30,
+    "contrat": "CDI",
+    "mode": "auto"
+  },
+  "experience": {
+    "annees": 0,
+    "competences": [],
+    "langues": []
+  },
+  "api": {
+    "ft_client_id": "",
+    "ft_client_secret": "",
+    "openai_key": "",
+    "anthropic_key": "",
+    "gmail_user": "",
+    "gmail_password": "",
+    "ai_engine": "ollama",
+    "ollama_model": "gemma2:2b",
+    "adzuna_app_id": "",
+    "adzuna_app_key": ""
+  },
+  "sources": {
+    "france_travail": true,
+    "indeed": false,
+    "linkedin": true,
+    "apec": false,
+    "welcometothejungle": true,
+    "hellowork": true,
+    "adzuna": false
+  },
+  "sources_config": {},
+  "custom_sources": [],
+  "candidatures": [],
+  "documents": {
+    "cv_path": "",
+    "cv_text": "",
+    "lettre_path": "",
+    "lettre_text": ""
+  },
+  "preferences": {},
+  "routine": {},
+  "ui": {
+    "last_tab": "search",
+    "tracker_filter": "Tous"
+  }
+}

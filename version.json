@@ -1,6 +1,6 @@
 {
-  "version": "1.0.1",
-  "url": "https://github.com/lucasegen/candidaturebot/releases/download/v1.0.1/CandidatureBot-1.0.1.zip",
-  "notes": "Validation du pipeline de mise à jour automatique.\n\nAucun changement fonctionnel par rapport à 1.0.0 — cette version sert à confirmer que le mécanisme OTA fonctionne de bout en bout.",
+  "version": "1.0.2",
+  "url": "https://github.com/lucasegen/candidaturebot/releases/download/v1.0.2/CandidatureBot-1.0.2.zip",
+  "notes": "🐛 Fix critique du système de mise à jour automatique sur macOS.\n\nLe ZIP qui contient CandidatureBot.app à sa racine était mal interprété par les versions 1.0.0 et 1.0.1, ce qui faisait échouer l'installation. Cette version corrige la détection du bundle .app dans l'archive.",
   "released": "2026-05-02"
 }

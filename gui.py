@@ -24,7 +24,7 @@ ctk.set_default_color_theme("blue")
 # En mode source on retombe sur le dossier du projet pour ne pas
 # casser le développement habituel.
 CONFIG_PATH = str(app_paths.config_path())
-APP_VERSION = "1.0.1"
+APP_VERSION = "1.0.2"
 SUPPORT_EMAIL = "candidaturebot.ai@gmail.com"
 
 # 🌐 URL du manifest de mise à jour.
@@ -4110,10 +4110,14 @@ class App(ctk.CTk):
                 zf.extractall(extract_root)
 
             # Si le ZIP contient un dossier racine unique, on descend dedans
+            # SAUF s'il s'agit déjà du bundle .app lui-même (cas macOS).
+            # Sinon on rentrerait DANS CandidatureBot.app, et l'étape
+            # suivante ne trouverait pas de .app à installer.
             extract_dir = extract_root
             entries = os.listdir(extract_dir)
             if len(entries) == 1 and \
-               os.path.isdir(os.path.join(extract_dir, entries[0])):
+               os.path.isdir(os.path.join(extract_dir, entries[0])) and \
+               not entries[0].endswith(".app"):
                 extract_dir = os.path.join(extract_dir, entries[0])
 
             # 3. Détection : app frozen sur macOS → on cherche un .app
@@ -4216,12 +4220,17 @@ class App(ctk.CTk):
 
         # 1. Localise le .app extrait
         app_in_zip = None
-        # Cherche d'abord à la racine, puis récursivement
-        for entry in os.listdir(extract_dir):
-            full = os.path.join(extract_dir, entry)
-            if entry.endswith(".app") and os.path.isdir(full):
-                app_in_zip = full
-                break
+        # Cas a : extract_dir EST déjà le bundle .app
+        if extract_dir.rstrip("/").endswith(".app") and os.path.isdir(extract_dir):
+            app_in_zip = extract_dir
+        # Cas b : .app à la racine de l'extract
+        if not app_in_zip:
+            for entry in os.listdir(extract_dir):
+                full = os.path.join(extract_dir, entry)
+                if entry.endswith(".app") and os.path.isdir(full):
+                    app_in_zip = full
+                    break
+        # Cas c : .app dans une sous-arborescence
         if not app_in_zip:
             for root, dirs, _files in os.walk(extract_dir):
                 for d in dirs:

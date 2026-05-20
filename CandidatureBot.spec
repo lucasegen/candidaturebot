@@ -37,6 +37,7 @@ hiddenimports = [
     "PIL._tkinter_finder",
     "customtkinter",
     "app_paths",
+    "theme",
     "ai_engine",
     "scraper",
     "tracker",
@@ -45,6 +46,15 @@ hiddenimports = [
     "cv_parser",
     "ollama_installer",
     "profile_manager",
+    # Scrapling + dépendances
+    "scrapling",
+    "curl_cffi",
+    "browserforge",
+    "fake_useragent",
+    "w3lib",
+    "tldextract",
+    "playwright",
+    "pyee",
 ]
 
 # ─── Modules exclus pour réduire la taille ─────────────────────

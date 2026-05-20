@@ -33,11 +33,13 @@
   },
   "sources": {
     "france_travail": true,
-    "indeed": false,
+    "indeed": true,
     "linkedin": true,
     "apec": false,
     "welcometothejungle": true,
     "hellowork": true,
+    "talent": true,
+    "jooble": true,
     "adzuna": false
   },
   "sources_config": {},

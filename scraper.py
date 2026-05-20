@@ -1,9 +1,15 @@
 """
-Scraper multi-sources : France Travail (API), Indeed, LinkedIn, APEC, Welcome to the Jungle.
+Scraper multi-sources : France Travail (API), Indeed, LinkedIn, HelloWork, Adzuna,
+Talent.com, Jooble, APEC, Welcome to the Jungle.
+
 + support sites personnalisés (user/password, CSS selectors).
 
 Stratégie : chaque source renvoie des dicts avec les clés normalisées :
   id, titre, entreprise, lieu, contrat, url, email, description, source
+
+Pour les sources HTML, on utilise Scrapling.Fetcher (TLS fingerprint Chrome
+réaliste, headers stealthy, bypass de la plupart des anti-bot basiques).
+Pour France Travail / Adzuna on garde leur API officielle.
 """
 import os
 import json
@@ -16,6 +22,40 @@ try:
     load_dotenv()
 except Exception:
     pass
+
+# Scrapling : fetcher HTTP avec TLS fingerprint Chrome (curl_cffi backend).
+# Beaucoup plus furtif que `requests` → débloque Indeed et compagnie.
+try:
+    from scrapling import Fetcher as _Scrap
+    _SCRAPLING_OK = True
+except Exception as _e:
+    _SCRAPLING_OK = False
+    print(f"[scraper] Scrapling indisponible, fallback requests : {_e}")
+
+
+def _stealthy_get(url, timeout=15, follow_redirects=True):
+    """GET avec Scrapling si dispo, sinon fallback requests.
+    Renvoie un objet avec .status, .html_content, .css(selector)."""
+    if _SCRAPLING_OK:
+        return _Scrap.get(
+            url, timeout=timeout, stealthy_headers=True,
+            follow_redirects=follow_redirects,
+        )
+    # Fallback dégradé
+    r = requests.get(url, headers=_DEFAULT_HEADERS, timeout=timeout,
+                     allow_redirects=follow_redirects)
+
+    class _Compat:
+        def __init__(self, r):
+            self.status = r.status_code
+            self.html_content = r.text
+            from bs4 import BeautifulSoup
+            self._soup = BeautifulSoup(r.text, "html.parser")
+
+        def css(self, sel):
+            return self._soup.select(sel)
+
+    return _Compat(r)
 
 # Headers navigateur réaliste pour contourner les blocages basiques
 _UA = (
@@ -120,13 +160,15 @@ class OffreScraper:
         all_offres = []
 
         source_map = [
-            ("france_travail",     "🇫🇷 France Travail",     self._src_france_travail),
-            ("indeed",             "🔴 Indeed",              self._src_indeed),
-            ("linkedin",           "🔵 LinkedIn",            self._src_linkedin),
-            ("apec",               "🟠 APEC",                self._src_apec),
-            ("welcometothejungle", "🟢 Welcome to the Jungle", self._src_wttj),
-            ("hellowork",          "💼 HelloWork",           self._src_hellowork),
-            ("adzuna",             "🔍 Adzuna",              self._src_adzuna),
+            ("france_travail",     "France Travail",     self._src_france_travail),
+            ("indeed",             "Indeed",              self._src_indeed),
+            ("linkedin",           "LinkedIn",            self._src_linkedin),
+            ("apec",               "APEC",                self._src_apec),
+            ("welcometothejungle", "Welcome to the Jungle", self._src_wttj),
+            ("hellowork",          "HelloWork",           self._src_hellowork),
+            ("adzuna",             "Adzuna",              self._src_adzuna),
+            ("talent",             "Talent.com",          self._src_talent),
+            ("jooble",             "Jooble",              self._src_jooble),
         ]
 
         for key, label, fn in source_map:
@@ -254,6 +296,7 @@ class OffreScraper:
         return out
 
     def _src_indeed(self, rech):
+        """Indeed via Scrapling : TLS fingerprint Chrome réaliste → bypass Cloudflare."""
         kw = " ".join(rech.get("mots_cles", [])) or ""
         loc = rech.get("localisation", "")
         qp = {"q": kw, "l": loc}
@@ -262,53 +305,13 @@ class OffreScraper:
             qp["jt"] = jt
         q = _urlp.urlencode(qp)
         url = f"https://fr.indeed.com/jobs?{q}"
-
-        # Session persistante + headers navigateur réalistes pour contourner
-        # les protections basiques d'Indeed (note : Indeed utilise aussi
-        # Cloudflare/PerimeterX, certains blocages sont incontournables sans proxy).
-        sess = requests.Session()
-        browser_headers = {
-            **_DEFAULT_HEADERS,
-            "Accept-Encoding": "gzip, deflate, br",
-            "Upgrade-Insecure-Requests": "1",
-            "Sec-Fetch-Dest": "document",
-            "Sec-Fetch-Mode": "navigate",
-            "Sec-Fetch-Site": "none",
-            "Sec-Fetch-User": "?1",
-            "Sec-Ch-Ua": '"Chromium";v="131", "Not_A Brand";v="24"',
-            "Sec-Ch-Ua-Mobile": "?0",
-            "Sec-Ch-Ua-Platform": '"macOS"',
-            "Cache-Control": "max-age=0",
-        }
-        sess.headers.update(browser_headers)
-
         try:
-            # 1) On « chauffe » la session en visitant la homepage (cookies + anti-bot)
-            try:
-                sess.get("https://fr.indeed.com/", timeout=10)
-                time.sleep(0.6)
-            except requests.exceptions.RequestException:
-                pass
-
-            # 2) Requête de recherche avec Referer homepage
-            r = sess.get(
-                url,
-                headers={
-                    "Referer": "https://fr.indeed.com/",
-                    "Sec-Fetch-Site": "same-origin",
-                },
-                timeout=15,
-            )
-            if r.status_code == 403:
-                raise RuntimeError(
-                    "HTTP 403 — Indeed bloque le scraping "
-                    "(Cloudflare). Utilise LinkedIn / France Travail / WTTJ à la place."
-                )
-            if r.status_code >= 400:
-                raise RuntimeError(f"HTTP {r.status_code}")
-            return self._parse_indeed(r.text, url)
-        except requests.exceptions.RequestException as e:
+            r = _stealthy_get(url, timeout=20)
+        except Exception as e:
             raise RuntimeError(f"connexion : {e}")
+        if r.status >= 400:
+            raise RuntimeError(f"HTTP {r.status}")
+        return self._parse_indeed(r.html_content, url)
 
     def _parse_indeed(self, html, base):
         from bs4 import BeautifulSoup
@@ -348,11 +351,9 @@ class OffreScraper:
             qp["f_JT"] = jt
         q = _urlp.urlencode(qp)
         url = f"https://www.linkedin.com/jobs/search/?{q}"
-        # Pagination : LinkedIn renvoie ~25 cartes par page via l'endpoint
-        # guest. On boucle jusqu'à plafond pour récupérer ~75 résultats max
-        # tout en restant raisonnable (4 requêtes successives).
+        # Pagination : 4 pages × 25 résultats = ~100 max
         max_pages = self.config.get("recherche", {}).get("linkedin_pages", 4)
-        page_size = 25  # imposé par l'endpoint guest
+        page_size = 25
         all_html = []
         for page in range(max_pages):
             start = page * page_size
@@ -361,26 +362,23 @@ class OffreScraper:
                 f"seeMoreJobPostings/search?{q}&start={start}"
             )
             try:
-                r = requests.get(api_url, headers=_DEFAULT_HEADERS, timeout=15)
-            except requests.exceptions.RequestException as e:
+                r = _stealthy_get(api_url, timeout=15)
+            except Exception as e:
                 if page == 0:
                     raise RuntimeError(f"connexion : {e}")
-                break  # erreur sur une page suivante → on garde ce qu'on a
-            if r.status_code >= 400:
+                break
+            if r.status >= 400:
                 if page == 0:
                     raise RuntimeError(
-                        f"HTTP {r.status_code} (LinkedIn bloque souvent sans login)"
+                        f"HTTP {r.status} (LinkedIn bloque souvent sans login)"
                     )
-                break  # rate-limit après quelques pages → arrêt propre
-            page_html = r.text
-            # Si la page est vide (plus de résultats), on s'arrête
+                break
+            page_html = r.html_content
             if not page_html or len(page_html.strip()) < 100:
                 break
             all_html.append(page_html)
-            # Petite pause anti rate-limit entre pages
             if page < max_pages - 1:
                 time.sleep(0.4)
-        # On parse chaque page et on agrège
         out = []
         for html in all_html:
             out.extend(self._parse_linkedin(html, url))
@@ -541,20 +539,20 @@ class OffreScraper:
             q = _urlp.urlencode(qp)
             url = f"https://www.hellowork.com/fr-fr/emploi/recherche.html?{q}"
             try:
-                r = requests.get(url, headers=_DEFAULT_HEADERS, timeout=15)
-            except requests.exceptions.RequestException:
+                r = _stealthy_get(url, timeout=15)
+            except Exception:
                 if page == 1:
                     raise
                 break
-            if r.status_code == 403:
+            if r.status == 403:
                 if page == 1:
                     raise RuntimeError("HelloWork 403 (anti-bot)")
                 break
-            if r.status_code >= 400:
+            if r.status >= 400:
                 if page == 1:
-                    raise RuntimeError(f"HTTP {r.status_code}")
+                    raise RuntimeError(f"HTTP {r.status}")
                 break
-            all_html.append(r.text)
+            all_html.append(r.html_content)
             if page < 2:
                 time.sleep(0.5)
 
@@ -609,6 +607,96 @@ class OffreScraper:
                     "url": full_url,
                     "email": "",
                 })
+        return out
+
+    # ============================================================
+    # Talent.com — meta-aggregator FR, scrapable via Scrapling
+    # ============================================================
+    def _src_talent(self, rech):
+        kw = " ".join(rech.get("mots_cles", [])) or ""
+        loc = rech.get("localisation", "")
+        q = _urlp.urlencode({"k": kw, "l": loc})
+        url = f"https://fr.talent.com/jobs?{q}"
+        try:
+            r = _stealthy_get(url, timeout=15)
+        except Exception as e:
+            raise RuntimeError(f"connexion : {e}")
+        if r.status >= 400:
+            raise RuntimeError(f"HTTP {r.status}")
+        out = []
+        cards = r.css("section.card, div.card-content, article")
+        for card in cards[:50]:
+            titre_el = card.css("h2, h3, [class*='itle']")
+            if not titre_el:
+                continue
+            titre = titre_el[0].get_all_text().strip() if hasattr(titre_el[0], 'get_all_text') \
+                    else titre_el[0].text.strip()
+            if not titre or len(titre) < 3:
+                continue
+            link_el = card.css("a[href*='/view'], a[href*='jobs']")
+            href = link_el[0].attrib.get("href", "") if link_el else ""
+            if href and not href.startswith("http"):
+                href = _urlp.urljoin("https://fr.talent.com/", href)
+            # Tente d'extraire entreprise/lieu via le text de la carte
+            full_text = (card.get_all_text() if hasattr(card, 'get_all_text') else card.text) or ""
+            tokens = [t.strip() for t in full_text.split("\n") if t.strip()]
+            entreprise = tokens[1] if len(tokens) > 1 else ""
+            lieu = tokens[2] if len(tokens) > 2 else ""
+            contrat = tokens[3] if len(tokens) > 3 else ""
+            out.append({
+                "id": f"talent_{_hid(titre, href)}",
+                "titre": titre,
+                "entreprise": entreprise[:80],
+                "lieu": lieu[:80],
+                "contrat": contrat[:30],
+                "description": "",
+                "url": href,
+                "email": "",
+            })
+        return out
+
+    # ============================================================
+    # Jooble — meta-aggregator FR, scrapable via Scrapling
+    # ============================================================
+    def _src_jooble(self, rech):
+        kw = " ".join(rech.get("mots_cles", [])) or ""
+        loc = rech.get("localisation", "")
+        q = _urlp.urlencode({"ukw": kw, "rgns": loc})
+        url = f"https://fr.jooble.org/SearchResult?{q}"
+        try:
+            r = _stealthy_get(url, timeout=15)
+        except Exception as e:
+            raise RuntimeError(f"connexion : {e}")
+        if r.status >= 400:
+            raise RuntimeError(f"HTTP {r.status}")
+        out = []
+        cards = r.css("[data-test-name='_jobCard']")
+        for card in cards[:50]:
+            titre_el = card.css("h2 a, h3 a, [data-test-name='_jobTitle']")
+            if not titre_el:
+                continue
+            titre = titre_el[0].get_all_text().strip() if hasattr(titre_el[0], 'get_all_text') \
+                    else titre_el[0].text.strip()
+            href = titre_el[0].attrib.get("href", "")
+            # Entreprise / lieu : on cherche dans le texte des sous-éléments
+            company_el = card.css("[class*='company'], [data-test-name='_companyName']")
+            entreprise = (company_el[0].get_all_text().strip()
+                          if company_el and hasattr(company_el[0], 'get_all_text')
+                          else "")
+            loc_el = card.css("[class*='location'], [data-test-name='_jobLocation']")
+            lieu = (loc_el[0].get_all_text().strip()
+                    if loc_el and hasattr(loc_el[0], 'get_all_text')
+                    else "")
+            out.append({
+                "id": f"jooble_{_hid(titre, href)}",
+                "titre": titre,
+                "entreprise": entreprise[:80],
+                "lieu": lieu[:80] or loc,
+                "contrat": "",
+                "description": "",
+                "url": href,
+                "email": "",
+            })
         return out
 
     # ============================================================

@@ -16,15 +16,18 @@ from PIL import Image
 import pytesseract
 
 import app_paths
+import theme
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
+THEME = theme.Colors
+ICONS = theme
 
 # Chemins centralisés (cross-platform, compatible PyInstaller).
 # En mode source on retombe sur le dossier du projet pour ne pas
 # casser le développement habituel.
 CONFIG_PATH = str(app_paths.config_path())
-APP_VERSION = "1.0.3"
+APP_VERSION = "1.0.4"
 SUPPORT_EMAIL = "candidaturebot.ai@gmail.com"
 
 # 🌐 URL du manifest de mise à jour.
@@ -74,12 +77,14 @@ DEFAULT_CONFIG = {
     },
     "sources": {
         "france_travail": True,
-        "indeed": False,
+        "indeed": True,         # débloqué par Scrapling (TLS fingerprint Chrome)
         "linkedin": True,
         "apec": False,
         "welcometothejungle": True,
         "hellowork": True,
-        "adzuna": False,    # nécessite clé API gratuite developer.adzuna.com
+        "talent": True,         # nouveau via Scrapling
+        "jooble": True,         # nouveau via Scrapling
+        "adzuna": False,        # nécessite clé API gratuite developer.adzuna.com
     },
     "sources_config": {},
     "custom_sources": [],
@@ -212,16 +217,16 @@ class App(ctk.CTk):
         self.sidebar.grid_rowconfigure(10, weight=1)
 
         ctk.CTkLabel(
-            self.sidebar, text="🎬 Candidature\nBot",
+            self.sidebar, text="CANDIDATURE\nBOT",
             font=ctk.CTkFont(size=18, weight="bold")
         ).grid(row=0, column=0, padx=20, pady=(30, 25))
 
         nav = [
-            ("🔍  Rechercher",   self.show_search),
-            ("📋  Candidatures", self.show_tracker),
-            ("🔁  Routine",      self.show_routine),
-            ("👤  Mes infos",    self.show_profile),
-            ("⚙️  Paramètres",   self.show_settings),
+            ("RECHERCHE",   self.show_search),
+            ("CANDIDATURES", self.show_tracker),
+            ("ROUTINE",      self.show_routine),
+            ("MES INFOS",    self.show_profile),
+            ("PARAMÈTRES",   self.show_settings),
         ]
         self.nav_btns = {}
         for i, (label, cmd) in enumerate(nav, 1):
@@ -284,7 +289,7 @@ class App(ctk.CTk):
     # 🔍 RECHERCHE (auto + manuel fusionnés)
     # ══════════════════════════════════════════════════════════
     def show_search(self):
-        self._set_active("🔍  Rechercher")
+        self._set_active("RECHERCHE")
         self._remember_tab("search")
         self._clear_main()
 
@@ -407,21 +412,22 @@ class App(ctk.CTk):
         btn_frame.pack(fill="x", side="bottom")
 
         self.search_btn = ctk.CTkButton(
-            btn_frame, text="🚀 Lancer la recherche",
+            btn_frame, text="Lancer la recherche",
             command=self.run_search, height=42,
+            fg_color=THEME.accent, hover_color=THEME.accent_hover,
             font=ctk.CTkFont(size=14, weight="bold")
         )
         self.search_btn.pack(side="left", expand=True, fill="x", padx=(0, 5))
         self._searching = False
 
         ctk.CTkButton(
-            btn_frame, text="🌐 Gérer les sources",
+            btn_frame, text="Gérer les sources",
             command=self.show_sources_manager, height=42,
             fg_color="gray30", hover_color="gray40"
         ).pack(side="left", padx=(5, 5))
 
         ctk.CTkButton(
-            btn_frame, text="⚙️ Paramètres",
+            btn_frame, text="PARAMÈTRES",
             command=self.show_settings, height=42,
             fg_color="gray30", hover_color="gray40"
         ).pack(side="left", padx=(5, 0))
@@ -443,7 +449,7 @@ class App(ctk.CTk):
             self._cancel_search = True
             self._searching = False
             self.search_btn.configure(
-                state="normal", text="🚀 Lancer la recherche",
+                state="normal", text="Lancer la recherche",
                 fg_color=("#3a7ebf", "#1f538d"), hover_color=("#325882", "#14375e")
             )
             if hasattr(self, "progress_label") and self.progress_label.winfo_exists():
@@ -482,14 +488,14 @@ class App(ctk.CTk):
         self._searching = True
         self._cancel_search = False
         self.search_btn.configure(
-            state="normal", text="⛔ Arrêter la recherche",
+            state="normal", text="Arrêter la recherche",
             fg_color="#c0392b", hover_color="#e74c3c"
         )
         for w in self.search_box.winfo_children():
             w.destroy()
 
         self.progress_label = ctk.CTkLabel(
-            self.search_box, text="🔄 Connexion aux sources...", text_color="gray"
+            self.search_box, text="Connexion aux sources...", text_color="gray"
         )
         self.progress_label.pack(pady=20)
 
@@ -519,8 +525,8 @@ class App(ctk.CTk):
     def _display_offres(self, offres, error=None):
         self._searching = False
         self.search_btn.configure(
-            state="normal", text="🚀 Lancer la recherche",
-            fg_color=("#3a7ebf", "#1f538d"), hover_color=("#325882", "#14375e")
+            state="normal", text="Lancer la recherche",
+            fg_color=THEME.accent, hover_color=THEME.accent_hover
         )
         for w in self.search_box.winfo_children():
             w.destroy()
@@ -615,7 +621,7 @@ class App(ctk.CTk):
             _refresh_count()
 
         ctk.CTkButton(
-            action_bar, text="➕ Ajouter aux candidatures",
+            action_bar, text="Ajouter aux candidatures",
             command=_add_selected, height=32,
             fg_color="#27ae60", hover_color="#2ecc71"
         ).pack(side="right", padx=10, pady=6)
@@ -679,7 +685,7 @@ class App(ctk.CTk):
 
             if o.get("url"):
                 ctk.CTkButton(
-                    btn_col, text="🔗 Voir l'offre", width=110, height=30,
+                    btn_col, text="Voir l'offre", width=110, height=30,
                     fg_color="gray30", hover_color="gray40",
                     command=lambda url=o.get("url"): self._open_url(url)
                 ).pack(pady=(0, 5))
@@ -687,7 +693,7 @@ class App(ctk.CTk):
             key = (o.get("entreprise", ""), o.get("titre", ""), o.get("url", ""))
             is_already = key in already
             btn = ctk.CTkButton(
-                btn_col, text=("✅ Ajoutée" if is_already else "➕ Ajouter"),
+                btn_col, text=("Ajoutée" if is_already else "Ajouter"),
                 width=110, height=30,
                 fg_color=("#27ae60" if is_already else ("#3a7ebf", "#1f538d")),
                 hover_color=("#2ecc71" if is_already else ("#325882", "#14375e")),
@@ -766,7 +772,7 @@ class App(ctk.CTk):
             info = getattr(self, "_postule_buttons", {}).get(ui_idx)
             if info and info["btn"].winfo_exists():
                 info["btn"].configure(
-                    text="✅ Ajoutée", state="disabled",
+                    text="Ajoutée", state="disabled",
                     fg_color="#27ae60", hover_color="#2ecc71"
                 )
                 info["done"] = True
@@ -778,7 +784,7 @@ class App(ctk.CTk):
         import_zone.pack(fill="x", pady=(0, 10))
 
         ctk.CTkLabel(
-            import_zone, text="📥 Importer une offre",
+            import_zone, text="Importer une offre",
             font=ctk.CTkFont(size=13, weight="bold")
         ).pack(anchor="w", padx=12, pady=(10, 2))
 
@@ -798,13 +804,13 @@ class App(ctk.CTk):
         # 🆕 URL d'analyse
         url_row = ctk.CTkFrame(import_zone, fg_color="transparent")
         url_row.pack(fill="x", padx=12, pady=(0, 10))
-        ctk.CTkLabel(url_row, text="🔗 URL :", width=80, anchor="w").pack(side="left")
+        ctk.CTkLabel(url_row, text="URL :", width=80, anchor="w").pack(side="left")
         self.manual_url_entry = ctk.CTkEntry(
             url_row, height=32, placeholder_text="https://exemple.com/offre-poste"
         )
         self.manual_url_entry.pack(side="left", fill="x", expand=True, padx=(0, 6))
         ctk.CTkButton(
-            url_row, text="🔍 Analyser la page",
+            url_row, text="Analyser la page",
             command=self._analyze_manual_url,
             height=32, width=150,
             fg_color="#2980b9", hover_color="#3498db"
@@ -843,17 +849,17 @@ class App(ctk.CTk):
         btn_row = ctk.CTkFrame(self.search_body, fg_color="transparent")
         btn_row.pack(fill="x")
         ctk.CTkButton(
-            btn_row, text="💾 Ajouter aux candidatures",
+            btn_row, text="Ajouter aux candidatures",
             command=self._save_manual, height=42,
             font=ctk.CTkFont(size=14, weight="bold")
         ).pack(side="left", expand=True, fill="x", padx=(0, 5))
         ctk.CTkButton(
-            btn_row, text="🤖 Générer lettre IA",
+            btn_row, text="Générer lettre",
             command=self._generate_lettre_manual, height=42,
             fg_color="#6c3483", hover_color="#7d3c98"
         ).pack(side="left", padx=(0, 5))
         ctk.CTkButton(
-            btn_row, text="🗑 Effacer",
+            btn_row, text="Effacer",
             command=self._clear_manual, height=42,
             fg_color="gray30", hover_color="gray40"
         ).pack(side="left")
@@ -922,7 +928,7 @@ class App(ctk.CTk):
                     data["poste"] = data.pop("titre")
                 self.after(0, lambda: self._fill_manual(data))
                 self.after(0, lambda: self.drop_label.configure(
-                    text="✅ Page analysée — vérifie et corrige si besoin",
+                    text="Page analysée — vérifie et corrige si besoin",
                     text_color="#27ae60"
                 ))
             except Exception as e:
@@ -1015,7 +1021,7 @@ class App(ctk.CTk):
         win.geometry(f"+{px}+{py}")
 
         ctk.CTkLabel(
-            win, text="🌐 Sources de recherche",
+            win, text="SOURCES DE RECHERCHE",
             font=ctk.CTkFont(size=18, weight="bold")
         ).pack(pady=(20, 5), padx=20, anchor="w")
         ctk.CTkLabel(
@@ -1031,13 +1037,15 @@ class App(ctk.CTk):
         custom_sources = self.cfg.setdefault("custom_sources", [])
 
         BUILTIN = {
-            "france_travail":     ("🇫🇷 France Travail",      "API officielle — nécessite Client ID/Secret (gratuit)"),
-            "indeed":             ("🔴 Indeed",                "Scraping gratuit — souvent bloqué (Cloudflare)"),
-            "linkedin":           ("🔵 LinkedIn",              "Scraping gratuit — fonctionne, ~100 résultats max"),
-            "apec":               ("🟠 APEC",                  "API publique — cadres & managers (endpoint instable)"),
-            "welcometothejungle": ("🟢 Welcome to the Jungle", "API publique — startups & créa (clé Algolia volatile)"),
-            "hellowork":          ("💼 HelloWork",             "Scraping gratuit — marché français, sans clé"),
-            "adzuna":             ("🔍 Adzuna",                "API gratuite (1000 req/mois) — clé requise dans Paramètres"),
+            "france_travail":     ("France Travail",      "API officielle — Client ID/Secret requis (gratuit)"),
+            "indeed":             ("Indeed",              "Scraping via Scrapling — débloqué (TLS Chrome)"),
+            "linkedin":           ("LinkedIn",            "Scraping — fonctionne, ~100 résultats max"),
+            "apec":               ("APEC",                "API publique — cadres (endpoint instable)"),
+            "welcometothejungle": ("Welcome to the Jungle", "API publique — startups (clé Algolia volatile)"),
+            "hellowork":          ("HelloWork",           "Scraping — marché français, sans clé"),
+            "talent":             ("Talent.com",          "Meta-aggregator — beaucoup d'offres FR"),
+            "jooble":             ("Jooble",              "Meta-aggregator — agrège plusieurs sources"),
+            "adzuna":             ("Adzuna",              "API gratuite (1000 req/mois) — clé requise"),
         }
 
         self.source_switches = {}
@@ -1101,7 +1109,7 @@ class App(ctk.CTk):
                     command=lambda idx=i: edit_custom(idx)
                 ).pack(side="left", padx=2)
                 ctk.CTkButton(
-                    action_frame, text="🗑", width=32, height=28,
+                    action_frame, text="X", width=32, height=28,
                     fg_color="gray30", hover_color="#e74c3c",
                     command=lambda idx=i: delete_custom(idx)
                 ).pack(side="left", padx=2)
@@ -1121,7 +1129,7 @@ class App(ctk.CTk):
 
             ctk.CTkLabel(
                 w,
-                text="💡 Indique un user/password si le site en demande.\n"
+                text="Indique un user/password si le site en demande.\n"
                      "Les sélecteurs CSS sont optionnels (pour extraire les offres).",
                 text_color="gray", font=ctk.CTkFont(size=11), justify="left"
             ).pack(padx=20, anchor="w", pady=(0, 10))
@@ -1179,7 +1187,7 @@ class App(ctk.CTk):
                 save_config(self.cfg)
                 refresh_custom()
                 w.destroy()
-            ctk.CTkButton(w, text="💾 Sauvegarder", command=do_save, height=38).pack(pady=15)
+            ctk.CTkButton(w, text="Sauvegarder", command=do_save, height=38).pack(pady=15)
             bring_to_front(w)
 
         def delete_custom(idx):
@@ -1207,7 +1215,7 @@ class App(ctk.CTk):
             self.show_search()
 
         ctk.CTkButton(
-            win, text="💾 Sauvegarder", command=save_sources, height=42,
+            win, text="Sauvegarder", command=save_sources, height=42,
             font=ctk.CTkFont(size=14, weight="bold")
         ).pack(fill="x", padx=15, pady=15)
 
@@ -1329,7 +1337,7 @@ class App(ctk.CTk):
         btn_row.pack(fill="x", padx=20, pady=(0, 18))
 
         ctk.CTkButton(
-            btn_row, text="🪄 Générer avec ces réglages",
+            btn_row, text="Générer avec ces réglages",
             command=lambda: (text_area.delete("1.0", "end"),
                              text_area.insert("1.0", "⏳ Génération en cours..."),
                              threading.Thread(target=generate, daemon=True).start()),
@@ -1343,13 +1351,13 @@ class App(ctk.CTk):
             messagebox.showinfo("✅", "Copié !", parent=win)
 
         ctk.CTkButton(
-            btn_row, text="📋 Copier",
+            btn_row, text="Copier",
             command=copy_text, height=38,
             fg_color="gray30", hover_color="gray40"
         ).pack(side="left", padx=(0, 5))
 
         ctk.CTkButton(
-            btn_row, text="💾 Sauvegarder dans profil",
+            btn_row, text="Sauvegarder dans profil",
             command=lambda: self._save_lettre_to_profil(
                 text_area.get("1.0", "end").strip(), win),
             height=38
@@ -1392,14 +1400,14 @@ class App(ctk.CTk):
     # 📋 CANDIDATURES
     # ══════════════════════════════════════════════════════════
     def show_tracker(self):
-        self._set_active("📋  Candidatures")
+        self._set_active("CANDIDATURES")
         self._remember_tab("tracker")
         self._clear_main()
 
         header_row = ctk.CTkFrame(self.main, fg_color="transparent")
         header_row.pack(fill="x", pady=(0, 5))
         ctk.CTkLabel(
-            header_row, text="📋 Mes candidatures",
+            header_row, text="MES CANDIDATURES",
             font=ctk.CTkFont(size=20, weight="bold")
         ).pack(side="left")
 
@@ -1459,7 +1467,7 @@ class App(ctk.CTk):
         ).pack(side="left")
 
         ctk.CTkButton(
-            action_row, text="📊 Exporter CSV",
+            action_row, text="Exporter CSV",
             command=self._export_csv,
             height=32, width=130,
             fg_color="gray30", hover_color="gray40"
@@ -1467,7 +1475,7 @@ class App(ctk.CTk):
 
         # 🆕 Bouton "tout envoyer" les 'À envoyer'
         ctk.CTkButton(
-            action_row, text="📧 Tout envoyer",
+            action_row, text="Tout envoyer",
             command=lambda: self._send_all_pending(scroll_frame),
             height=32, width=140,
             fg_color="#27ae60", hover_color="#2ecc71"
@@ -1494,7 +1502,7 @@ class App(ctk.CTk):
         self._tracker_sel_count_label.pack(side="left", padx=(12, 0))
 
         ctk.CTkButton(
-            select_row, text="🗑 Supprimer la sélection",
+            select_row, text="Supprimer la sélection",
             command=lambda: self._tracker_delete_selected(scroll_frame),
             height=30, width=200,
             fg_color="#c0392b", hover_color="#e74c3c"
@@ -1674,27 +1682,35 @@ class App(ctk.CTk):
 
             if c.get("url"):
                 ctk.CTkButton(
-                    btn_row, text="🔗", width=32, height=28,
-                    fg_color="gray30", hover_color="gray40",
+                    btn_row, text="Lien", width=48, height=28,
+                    fg_color=THEME.bg_panel_alt, hover_color=THEME.border,
+                    text_color=THEME.blue_link,
+                    font=ctk.CTkFont(size=11),
                     command=lambda url=c["url"]: self._open_url(url)
                 ).pack(side="left", padx=2)
 
             ctk.CTkButton(
-                btn_row, text="🤖", width=32, height=28,
-                fg_color="#6c3483", hover_color="#7d3c98",
+                btn_row, text="Lettre", width=58, height=28,
+                fg_color=THEME.accent, hover_color=THEME.accent_hover,
+                text_color="white",
+                font=ctk.CTkFont(size=11),
                 command=lambda off=c, i=real_i: self._open_lettre_window(off, idx=i)
             ).pack(side="left", padx=2)
 
             ctk.CTkButton(
-                btn_row, text="📧", width=32, height=28,
-                fg_color="#2980b9", hover_color="#3498db",
+                btn_row, text="Mail", width=48, height=28,
+                fg_color=THEME.bg_panel_alt, hover_color=THEME.border,
+                text_color=THEME.text_primary,
+                font=ctk.CTkFont(size=11),
                 command=lambda off=c, idx=real_i, cont=container:
                     self._send_candidature(off, idx, cont)
             ).pack(side="left", padx=2)
 
             ctk.CTkButton(
-                btn_row, text="🗑", width=32, height=28,
-                fg_color="gray30", hover_color="#e74c3c",
+                btn_row, text="Suppr", width=52, height=28,
+                fg_color=THEME.bg_panel_alt, hover_color=THEME.red_danger,
+                text_color=THEME.text_secondary,
+                font=ctk.CTkFont(size=11),
                 command=lambda idx=real_i, cont=container:
                     self._delete_candidature(idx, cont)
             ).pack(side="left", padx=2)
@@ -1884,7 +1900,7 @@ class App(ctk.CTk):
                 )
             else:
                 lettre_status_label.configure(
-                    text="⚠️ Aucune lettre liée — clique sur ✏️ pour la rédiger",
+                    text="Aucune lettre liée — clique sur Lettre pour la rédiger",
                     text_color="#e67e22"
                 )
 
@@ -1999,13 +2015,13 @@ class App(ctk.CTk):
                 messagebox.showerror("❌ Erreur envoi", str(e), parent=win)
 
         ctk.CTkButton(
-            btn_row, text="🔄 Régénérer mail",
+            btn_row, text="Régénérer mail",
             command=lambda: threading.Thread(target=generate, daemon=True).start(),
             fg_color="gray30", hover_color="gray40", height=38, width=150
         ).pack(side="left", padx=(0, 5))
 
         ctk.CTkButton(
-            btn_row, text="📧 Envoyer",
+            btn_row, text="Envoyer",
             command=do_send,
             fg_color="#27ae60", hover_color="#2ecc71", height=38, width=120
         ).pack(side="left", padx=(0, 5))
@@ -2057,7 +2073,7 @@ class App(ctk.CTk):
         win.geometry(f"+{px}+{py}")
 
         ctk.CTkLabel(
-            win, text="📧 Envoi en lot des candidatures",
+            win, text="ENVOI EN LOT DES CANDIDATURES",
             font=ctk.CTkFont(size=15, weight="bold")
         ).pack(pady=(20, 10), padx=20, anchor="w")
 
@@ -2128,7 +2144,7 @@ class App(ctk.CTk):
     # 🔁 ROUTINE : recherches automatiques récurrentes
     # ══════════════════════════════════════════════════════════
     def show_routine(self):
-        self._set_active("🔁  Routine")
+        self._set_active("ROUTINE")
         self._remember_tab("routine")
         self._clear_main()
 
@@ -2148,7 +2164,7 @@ class App(ctk.CTk):
             routine["contrat"] = rech.get("contrat", "Tous")
 
         ctk.CTkLabel(
-            self.main, text="🔁 Routine — recherches automatiques",
+            self.main, text="ROUTINE — RECHERCHES AUTOMATIQUES",
             font=ctk.CTkFont(size=20, weight="bold")
         ).pack(anchor="w", pady=(0, 4))
         ctk.CTkLabel(
@@ -2182,7 +2198,7 @@ class App(ctk.CTk):
         freq_frame.pack(fill="x", pady=(0, 12))
 
         ctk.CTkLabel(
-            freq_frame, text="⏱ Fréquence",
+            freq_frame, text="FRÉQUENCE",
             font=ctk.CTkFont(size=13, weight="bold")
         ).pack(anchor="w", padx=15, pady=(10, 2))
 
@@ -2214,7 +2230,7 @@ class App(ctk.CTk):
         crit_frame.pack(fill="x", pady=(0, 12))
 
         ctk.CTkLabel(
-            crit_frame, text="🎯 Critères (indépendants de la recherche manuelle)",
+            crit_frame, text="CRITÈRES (INDÉPENDANTS DE LA RECHERCHE MANUELLE)",
             font=ctk.CTkFont(size=13, weight="bold")
         ).pack(anchor="w", padx=15, pady=(10, 2))
 
@@ -2260,7 +2276,7 @@ class App(ctk.CTk):
         opt_frame.pack(fill="x", pady=(0, 12))
 
         ctk.CTkLabel(
-            opt_frame, text="🤖 Automatisation",
+            opt_frame, text="AUTOMATISATION",
             font=ctk.CTkFont(size=13, weight="bold")
         ).pack(anchor="w", padx=15, pady=(10, 2))
 
@@ -2279,7 +2295,7 @@ class App(ctk.CTk):
         hist_frame.pack(fill="both", expand=True, pady=(0, 12))
 
         ctk.CTkLabel(
-            hist_frame, text="📜 Dernières exécutions",
+            hist_frame, text="DERNIÈRES EXÉCUTIONS",
             font=ctk.CTkFont(size=13, weight="bold")
         ).pack(anchor="w", padx=15, pady=(10, 4))
 
@@ -2320,14 +2336,14 @@ class App(ctk.CTk):
         btn_row.pack(fill="x", pady=(0, 8))
 
         ctk.CTkButton(
-            btn_row, text="💾 Sauvegarder",
+            btn_row, text="Sauvegarder",
             command=self._save_routine, height=42,
             fg_color="#27ae60", hover_color="#2ecc71",
             font=ctk.CTkFont(size=14, weight="bold")
         ).pack(side="left", expand=True, fill="x", padx=(0, 5))
 
         ctk.CTkButton(
-            btn_row, text="▶️ Lancer maintenant",
+            btn_row, text="Lancer maintenant",
             command=lambda: threading.Thread(
                 target=lambda: self._run_routine_search(manual=True),
                 daemon=True
@@ -2568,12 +2584,12 @@ class App(ctk.CTk):
     # 👤 PROFIL (simplifié — retrait des redondances)
     # ══════════════════════════════════════════════════════════
     def show_profile(self):
-        self._set_active("👤  Mes infos")
+        self._set_active("MES INFOS")
         self._remember_tab("profile")
         self._clear_main()
 
         ctk.CTkLabel(
-            self.main, text="📋 Mes infos",
+            self.main, text="MES INFOS",
             font=ctk.CTkFont(size=20, weight="bold")
         ).pack(anchor="w", pady=(0, 4))
         ctk.CTkLabel(
@@ -2590,7 +2606,7 @@ class App(ctk.CTk):
         exp = self.cfg.setdefault("experience", {})
 
         # Section identité
-        ctk.CTkLabel(form, text="👤 Identité",
+        ctk.CTkLabel(form, text="IDENTITÉ",
                      font=ctk.CTkFont(size=14, weight="bold")
                      ).grid(row=0, column=0, columnspan=2, sticky="w",
                             padx=5, pady=(5, 8))
@@ -2613,7 +2629,7 @@ class App(ctk.CTk):
 
         # Section expérience
         row = len(fields) + 2
-        ctk.CTkLabel(form, text="💼 Expérience",
+        ctk.CTkLabel(form, text="EXPÉRIENCE",
                      font=ctk.CTkFont(size=14, weight="bold")
                      ).grid(row=row, column=0, columnspan=2, sticky="w",
                             padx=5, pady=(15, 8))
@@ -2639,7 +2655,7 @@ class App(ctk.CTk):
         # Section CV
         row += 4
         docs = self.cfg.setdefault("documents", {})
-        ctk.CTkLabel(form, text="📄 CV",
+        ctk.CTkLabel(form, text="CV",
                      font=ctk.CTkFont(size=14, weight="bold")
                      ).grid(row=row, column=0, columnspan=2, sticky="w",
                             padx=5, pady=(15, 8))
@@ -2669,19 +2685,19 @@ class App(ctk.CTk):
         cv_actions = ctk.CTkFrame(form, fg_color="transparent")
         cv_actions.grid(row=row+2, column=0, columnspan=2, sticky="ew", pady=(0, 4), padx=(5, 5))
         ctk.CTkButton(
-            cv_actions, text="🪄 Remplir le profil depuis le CV",
+            cv_actions, text="Remplir depuis le CV",
             command=self._autofill_from_cv, height=32,
             fg_color="#6c3483", hover_color="#7d3c98"
         ).pack(side="left", padx=(0, 6))
         ctk.CTkButton(
-            cv_actions, text="🧪 Analyser la compatibilité ATS",
+            cv_actions, text="Analyser ATS",
             command=self._analyze_ats, height=32,
             fg_color="#2980b9", hover_color="#3498db"
         ).pack(side="left", padx=(0, 6))
 
         # Section Lettre de motivation (fichier)
         row += 3
-        ctk.CTkLabel(form, text="💌 Lettre de motivation (fichier)",
+        ctk.CTkLabel(form, text="LETTRE DE MOTIVATION",
                      font=ctk.CTkFont(size=14, weight="bold")
                      ).grid(row=row, column=0, columnspan=2, sticky="w",
                             padx=5, pady=(15, 8))
@@ -2711,11 +2727,11 @@ class App(ctk.CTk):
                            sticky="ew", padx=5, pady=(15, 8))
         lettre_header.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(
-            lettre_header, text="✍️ Lettre type (texte)",
+            lettre_header, text="LETTRE TYPE",
             font=ctk.CTkFont(size=14, weight="bold")
         ).grid(row=0, column=0, sticky="w")
         ctk.CTkButton(
-            lettre_header, text="🤖 Générer lettre IA",
+            lettre_header, text="Générer lettre",
             command=lambda: self._open_lettre_window({
                 "titre": self.cfg.get("profil", {}).get("poste_recherche", ""),
                 "poste": self.cfg.get("profil", {}).get("poste_recherche", ""),
@@ -2736,7 +2752,7 @@ class App(ctk.CTk):
         # Note info
         ctk.CTkLabel(
             self.main,
-            text="💡 Email & ville viennent de ⚙️ Paramètres (Gmail) et de 🔍 Recherche (localisation).",
+            text="Email & ville viennent de Paramètres (Gmail) et de Recherche (localisation).",
             text_color="gray", font=ctk.CTkFont(size=11), justify="left"
         ).pack(anchor="w", pady=(8, 0))
 
@@ -2744,8 +2760,9 @@ class App(ctk.CTk):
         btn_row.pack(fill="x", pady=(10, 0))
 
         ctk.CTkButton(
-            btn_row, text="💾 Sauvegarder le profil",
+            btn_row, text="Sauvegarder le profil",
             command=self.save_profile, height=42,
+            fg_color=THEME.accent, hover_color=THEME.accent_hover,
             font=ctk.CTkFont(size=14, weight="bold")
         ).pack(side="left", expand=True, fill="x")
 
@@ -3064,12 +3081,12 @@ class App(ctk.CTk):
     # ⚙️ PARAMÈTRES
     # ══════════════════════════════════════════════════════════
     def show_settings(self):
-        self._set_active("⚙️  Paramètres")
+        self._set_active("PARAMÈTRES")
         self._remember_tab("settings")
         self._clear_main()
 
         ctk.CTkLabel(
-            self.main, text="⚙️ Paramètres",
+            self.main, text="PARAMÈTRES",
             font=ctk.CTkFont(size=20, weight="bold")
         ).pack(anchor="w", pady=(0, 10))
 
@@ -3082,7 +3099,7 @@ class App(ctk.CTk):
 
         # ── Section IA ─────────────────────────────────────────
         ctk.CTkLabel(
-            scroll, text="🤖 Intelligence Artificielle",
+            scroll, text="INTELLIGENCE ARTIFICIELLE",
             font=ctk.CTkFont(size=15, weight="bold")
         ).grid(row=0, column=0, columnspan=2, sticky="w", padx=5, pady=(15, 5))
 
@@ -3126,7 +3143,7 @@ class App(ctk.CTk):
         ai_btn_frame.grid(row=6, column=0, columnspan=2, sticky="w", padx=5, pady=(5, 2))
 
         ctk.CTkButton(
-            ai_btn_frame, text="🧪 Tester la connexion IA",
+            ai_btn_frame, text="Tester la connexion IA",
             command=self._test_ai_connection,
             height=34, width=200,
             fg_color="gray25", hover_color="gray35"
@@ -3134,7 +3151,7 @@ class App(ctk.CTk):
 
         # 🆕 Bouton magique Install Ollama
         ctk.CTkButton(
-            ai_btn_frame, text="🪄 Installer & connecter Ollama",
+            ai_btn_frame, text="Installer Ollama",
             command=self._magic_install_ollama,
             height=34, width=240,
             fg_color="#6c3483", hover_color="#7d3c98"
@@ -3145,7 +3162,7 @@ class App(ctk.CTk):
 
         # ── Section Gmail ──────────────────────────────────────
         ctk.CTkLabel(
-            scroll, text="📧 Gmail",
+            scroll, text="GMAIL",
             font=ctk.CTkFont(size=15, weight="bold")
         ).grid(row=8, column=0, columnspan=2, sticky="w", padx=5, pady=(20, 5))
 
@@ -3174,7 +3191,7 @@ class App(ctk.CTk):
 
         # ── Section France Travail ─────────────────────────────
         ctk.CTkLabel(
-            scroll, text="🏢 API France Travail (gratuit)",
+            scroll, text="FRANCE TRAVAIL (API)",
             font=ctk.CTkFont(size=15, weight="bold")
         ).grid(row=11, column=0, columnspan=2, sticky="w", padx=5, pady=(20, 5))
 
@@ -3191,7 +3208,7 @@ class App(ctk.CTk):
         self.ft_secret_entry.grid(row=13, column=1, sticky="ew", pady=5, padx=(0, 5))
 
         ctk.CTkButton(
-            scroll, text="🔗 Créer un compte France Travail →",
+            scroll, text="Créer un compte France Travail →",
             command=lambda: self._open_url("https://francetravail.io/"),
             height=30, width=280,
             fg_color="gray25", hover_color="gray35"
@@ -3199,7 +3216,7 @@ class App(ctk.CTk):
 
         # ── Section Adzuna (rows 15-18) ────────────────────────
         ctk.CTkLabel(
-            scroll, text="🔍 Adzuna (source de jobs supplémentaire) — facultatif",
+            scroll, text="ADZUNA (FACULTATIF)",
             font=ctk.CTkFont(size=15, weight="bold")
         ).grid(row=15, column=0, columnspan=2, sticky="w", padx=5, pady=(20, 5))
 
@@ -3216,7 +3233,7 @@ class App(ctk.CTk):
         self.adzuna_key_entry.grid(row=17, column=1, sticky="ew", pady=5, padx=(0, 5))
 
         ctk.CTkButton(
-            scroll, text="🔗 Inscription Adzuna (1000 req/mois gratuites) →",
+            scroll, text="Inscription Adzuna (1000 req/mois gratuites) →",
             command=lambda: self._open_url("https://developer.adzuna.com/signup"),
             height=28, width=380,
             fg_color="gray25", hover_color="gray35"
@@ -3224,7 +3241,7 @@ class App(ctk.CTk):
 
         # ── Section Filtres (rows 21-26) ───────────────────────
         ctk.CTkLabel(
-            scroll, text="🔍 Filtres par défaut",
+            scroll, text="FILTRES PAR DÉFAUT",
             font=ctk.CTkFont(size=15, weight="bold")
         ).grid(row=21, column=0, columnspan=2, sticky="w", padx=5, pady=(20, 5))
 
@@ -3256,7 +3273,7 @@ class App(ctk.CTk):
         ).grid(row=25, column=1, sticky="w", pady=5, padx=(0, 5))
 
         ctk.CTkButton(
-            scroll, text="🌐 Gérer les sources de recherche →",
+            scroll, text="Gérer les sources de recherche →",
             command=self.show_sources_manager,
             height=36, fg_color="gray25", hover_color="gray35"
         ).grid(row=26, column=0, columnspan=2,
@@ -3264,7 +3281,7 @@ class App(ctk.CTk):
 
         # ── Section Mises à jour (rows 27-30) ──────────────────
         ctk.CTkLabel(
-            scroll, text="🔄 Mises à jour",
+            scroll, text="MISES À JOUR",
             font=ctk.CTkFont(size=15, weight="bold")
         ).grid(row=27, column=0, columnspan=2, sticky="w", padx=5, pady=(20, 5))
 
@@ -3278,10 +3295,10 @@ class App(ctk.CTk):
         update_btn_row.grid(row=29, column=0, columnspan=2,
                             sticky="w", padx=5, pady=(0, 5))
         ctk.CTkButton(
-            update_btn_row, text="🔄 Vérifier les mises à jour",
+            update_btn_row, text="Vérifier les mises à jour",
             command=self._check_for_updates,
             height=36, width=240,
-            fg_color="#27ae60", hover_color="#2ecc71"
+            fg_color=THEME.accent, hover_color=THEME.accent_hover
         ).pack(side="left", padx=(0, 6))
 
         self._update_status_label = ctk.CTkLabel(
@@ -3292,8 +3309,9 @@ class App(ctk.CTk):
                                        sticky="w", padx=10, pady=(0, 10))
 
         ctk.CTkButton(
-            self.main, text="💾 Sauvegarder les paramètres",
+            self.main, text="Sauvegarder les paramètres",
             command=self.save_settings, height=42,
+            fg_color=THEME.accent, hover_color=THEME.accent_hover,
             font=ctk.CTkFont(size=14, weight="bold")
         ).pack(fill="x", pady=(10, 0))
 
@@ -3331,7 +3349,7 @@ class App(ctk.CTk):
         btn_row = ctk.CTkFrame(win, fg_color="transparent")
         btn_row.pack(pady=15)
         ctk.CTkButton(
-            btn_row, text="🔗 Ouvrir Google App Passwords",
+            btn_row, text="Ouvrir Google App Passwords",
             command=lambda: self._open_url("https://myaccount.google.com/apppasswords"),
             height=36, fg_color="#2980b9", hover_color="#3498db"
         ).pack(side="left", padx=5)
@@ -3356,7 +3374,7 @@ class App(ctk.CTk):
                 result = engine.generate_email(offre_test, self.cfg)
                 if result and "IA indisponible" not in result:
                     self.after(0, lambda: self.ai_test_label.configure(
-                        text="✅ Connexion IA OK !", text_color="#27ae60"))
+                        text="Connexion IA OK", text_color="#27ae60"))
                 else:
                     self.after(0, lambda r=result: self.ai_test_label.configure(
                         text=f"⚠️ Fallback template actif. {r[:80] if r else ''}",
@@ -3383,7 +3401,7 @@ class App(ctk.CTk):
         win.geometry(f"+{px}+{py}")
 
         ctk.CTkLabel(
-            win, text="🪄 Installation automatique d'Ollama",
+            win, text="INSTALLATION AUTOMATIQUE D'OLLAMA",
             font=ctk.CTkFont(size=16, weight="bold")
         ).pack(pady=(20, 8), padx=20, anchor="w")
 
@@ -3451,7 +3469,7 @@ class App(ctk.CTk):
             height=38, fg_color="#6c3483", hover_color="#7d3c98"
         )
         change_btn = ctk.CTkButton(
-            btn_bar, text="🔄 Télécharger un autre modèle",
+            btn_bar, text="Télécharger un autre modèle",
             height=38, fg_color="gray30", hover_color="gray40"
         )
         close_btn = ctk.CTkButton(
@@ -3480,16 +3498,16 @@ class App(ctk.CTk):
                             self.ollama_entry.insert(0, model)
                         if hasattr(self, "ai_test_label"):
                             self.ai_test_label.configure(
-                                text="✅ Ollama installé & connecté",
+                                text="Ollama installé & connecté",
                                 text_color="#27ae60")
                         # Fin réussie → plus besoin de réinstaller, on grise
                         start_btn.configure(
-                            text="✅ Déjà installé",
+                            text="Déjà installé",
                             state="disabled", fg_color="gray30")
                         change_btn.configure(state="normal")
                     else:
                         append(f"\n❌ Échec : {err}")
-                        start_btn.configure(text="🔄 Réessayer", state="normal")
+                        start_btn.configure(text="Réessayer", state="normal")
                         change_btn.configure(state="normal")
                 win.after(0, finish)
 
@@ -3514,7 +3532,7 @@ class App(ctk.CTk):
         # Si déjà tout prêt → on grise le bouton d'install
         if installed and running and model_ready:
             start_btn.configure(
-                text="✅ Déjà installé", state="disabled",
+                text="Déjà installé", state="disabled",
                 fg_color="gray30", hover_color="gray30"
             )
             append("✅ Tout est opérationnel — rien à faire.")

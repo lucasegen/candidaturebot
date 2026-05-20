@@ -1,6 +1,6 @@
 {
-  "version": "1.0.3",
-  "url": "https://github.com/lucasegen/candidaturebot/releases/download/v1.0.3/CandidatureBot-1.0.3.zip",
-  "notes": "Test du pipeline OTA depuis v1.0.2.\n\nLa v1.0.2 a corrigé le bug de détection du bundle .app dans l'archive ZIP.\nCette version sert à valider que le mécanisme de mise à jour automatique\nfonctionne maintenant de bout en bout.",
-  "released": "2026-05-02"
+  "version": "1.0.4",
+  "url": "https://github.com/lucasegen/candidaturebot/releases/download/v1.0.4/CandidatureBot-1.0.4.zip",
+  "notes": "Mise à jour majeure :\n\n• Scrapling intégré → Indeed débloqué (TLS fingerprint Chrome réaliste, bypass Cloudflare)\n• 2 nouvelles sources : Talent.com et Jooble (aggregators FR)\n• 9 sources de jobs au total\n• Refonte UI complète : palette dark professionnelle inspirée des DAW broadcast (orange brand #d36531, gris #1f1f23)\n• Suppression de tous les emojis : remplacés par du texte caps + boutons colorés sémantiques\n• Boutons primaires alignés sur la palette accent",
+  "released": "2026-05-20"
 }

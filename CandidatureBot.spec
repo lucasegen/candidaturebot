@@ -34,6 +34,9 @@ _patch_d, _patch_b, _patch_h = _collect("patchright")
 _w3l_d,   _w3l_b,   _w3l_h   = _collect("w3lib")
 _tldx_d,  _tldx_b,  _tldx_h  = _collect("tldextract")
 _pyee_d,  _pyee_b,  _pyee_h  = _collect("pyee")
+# Data files browserforge depuis v1.2.4 — package séparé contenant
+# fingerprint-network-definition.zip, headers-order.json, etc.
+_apfd_d,  _apfd_b,  _apfd_h  = _collect("apify_fingerprint_datapoints")
 
 
 def _drop_drivers(coll):
@@ -65,10 +68,10 @@ _patch_b = _drop_drivers(_patch_b)
 datas = [
     (str(ROOT / "config.template.json"), "."),
 ] + _scrap_d + _brwf_d + _curl_d + _fuag_d + _plw_d + _patch_d \
-  + _w3l_d + _tldx_d + _pyee_d
+  + _w3l_d + _tldx_d + _pyee_d + _apfd_d
 
 binaries = _scrap_b + _brwf_b + _curl_b + _fuag_b + _plw_b + _patch_b \
-         + _w3l_b + _tldx_b + _pyee_b
+         + _w3l_b + _tldx_b + _pyee_b + _apfd_b
 
 # ─── Imports cachés (PyInstaller ne les détecte pas tout seul) ─
 hiddenimports = [
@@ -116,8 +119,9 @@ hiddenimports = [
     "playwright",
     "playwright._impl._errors",
     "pyee",
+    "apify_fingerprint_datapoints",
 ] + _scrap_h + _brwf_h + _curl_h + _fuag_h + _plw_h \
-  + _w3l_h + _tldx_h + _pyee_h
+  + _w3l_h + _tldx_h + _pyee_h + _apfd_h
 
 # ─── Modules exclus pour réduire la taille ─────────────────────
 excludes = [

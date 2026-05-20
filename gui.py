@@ -27,7 +27,7 @@ ICONS = theme
 # En mode source on retombe sur le dossier du projet pour ne pas
 # casser le développement habituel.
 CONFIG_PATH = str(app_paths.config_path())
-APP_VERSION = "1.0.11"
+APP_VERSION = "1.0.12"
 SUPPORT_EMAIL = "candidaturebot.ai@gmail.com"
 
 # 🌐 URL du manifest de mise à jour.

@@ -1,6 +1,6 @@
 {
-  "version": "1.0.11",
-  "url": "https://github.com/lucasegen/candidaturebot/releases/download/v1.0.11/CandidatureBot-1.0.11.zip",
-  "notes": "Logos des sites + diagnostic Scrapling.\n\n• Dans 'Gérer les sources', chaque plateforme affiche maintenant son logo (favicon récupéré via Google s2, caché en local dans data/logos/)\n• Bouton 'Tester Scrapling' qui fait un appel HTTP réel et affiche : status HTTP + User-Agent — permet de vérifier instantanément que Scrapling tourne dans le bundle\n• Logos téléchargés en thread → UI jamais bloquée",
+  "version": "1.0.12",
+  "url": "https://github.com/lucasegen/candidaturebot/releases/download/v1.0.12/CandidatureBot-1.0.12.zip",
+  "notes": "Fix critique Scrapling : data files manquants.\n\nDepuis browserforge 1.2.4, les fichiers de définition réseau (fingerprint-network, header-network, headers-order...) sont dans un package séparé apify_fingerprint_datapoints. PyInstaller ne le bundlait pas → FileNotFoundError au premier appel de Scrapling.\n\nAjouté collect_all('apify_fingerprint_datapoints') au .spec → toutes les fonctions Scrapling marchent enfin (Indeed, Talent.com, Jooble, HelloWork).",
   "released": "2026-05-20"
 }

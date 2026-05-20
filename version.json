@@ -1,6 +1,6 @@
 {
-  "version": "1.0.8",
-  "url": "https://github.com/lucasegen/candidaturebot/releases/download/v1.0.8/CandidatureBot-1.0.8.zip",
-  "notes": "Cleanup UI : icônes paint retirées (style moins moche).\n\n• Toutes les icônes vectorielles PIL (que j'avais dessinées à la main) supprimées : sidebar full-text, cartes d'offres avec séparateur · simple, boutons primaires sans icône\n• Style boutons inspiré shadcn : corner_radius=20 sur les principaux boutons (pill style), font bold, hover smooth\n• Sidebar items : corner_radius=8, hauteur 40, texte CAPS bold\n• Bouton '?' aide : cercle 36×36 avec '?' centré (sans icône PIL)\n• Palette bleue conservée (#1f6aa5)",
+  "version": "1.0.9",
+  "url": "https://github.com/lucasegen/candidaturebot/releases/download/v1.0.9/CandidatureBot-1.0.9.zip",
+  "notes": "Fix bug zlib OTA : 'Error -3 while decompressing data: incorrect header check'.\n\nDans les v1.0.4 à v1.0.8, le module 'requests' du bundle PyInstaller avait un conflit avec 'curl_cffi' (dépendance de Scrapling) pour la décompression gzip → erreur lors du fetch du manifest et du téléchargement du ZIP.\n\nSwitch vers 'urllib.request' (stdlib) avec Accept-Encoding: identity pour le manifest et le téléchargement ZIP. Robuste, plus de conflit.",
   "released": "2026-05-20"
 }

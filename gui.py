@@ -27,7 +27,7 @@ ICONS = theme
 # En mode source on retombe sur le dossier du projet pour ne pas
 # casser le développement habituel.
 CONFIG_PATH = str(app_paths.config_path())
-APP_VERSION = "1.0.8"
+APP_VERSION = "1.0.9"
 SUPPORT_EMAIL = "candidaturebot.ai@gmail.com"
 
 # 🌐 URL du manifest de mise à jour.
@@ -4102,11 +4102,25 @@ class App(ctk.CTk):
                          daemon=True).start()
 
     def _check_for_updates_async(self):
+        """Fetch le manifest via urllib stdlib (évite tout conflit avec
+        curl_cffi / scrapling qui peuvent corrompre la décompression gzip
+        de requests dans le bundle PyInstaller)."""
         try:
-            import requests
-            resp = requests.get(UPDATE_MANIFEST_URL, timeout=10)
-            resp.raise_for_status()
-            data = resp.json()
+            import json as _json
+            import urllib.request
+            req = urllib.request.Request(
+                UPDATE_MANIFEST_URL,
+                headers={
+                    "User-Agent": "CandidatureBot-Updater/1.0",
+                    "Accept-Encoding": "identity",  # pas de gzip
+                    "Accept": "application/json",
+                },
+            )
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                if resp.status >= 400:
+                    raise RuntimeError(f"HTTP {resp.status}")
+                body = resp.read().decode("utf-8", errors="replace")
+            data = _json.loads(body)
             latest = data.get("version", "0")
             if self._version_tuple(latest) > self._version_tuple(APP_VERSION):
                 self.after(0, lambda: self._show_update_available(data))
@@ -4161,18 +4175,29 @@ class App(ctk.CTk):
                 tempfile.gettempdir(),
                 f"candidaturebot_{int(time.time())}.zip"
             )
+            # Téléchargement via urllib pour éviter tout conflit de
+            # décompression gzip avec curl_cffi/scrapling (un bug du
+            # bundle PyInstaller en v1.0.4-1.0.8 causait des erreurs zlib).
             downloaded = 0
-            with requests.get(url, stream=True, timeout=120) as r:
-                r.raise_for_status()
+            import urllib.request as _urlrq
+            zip_req = _urlrq.Request(url, headers={
+                "User-Agent": "CandidatureBot-Updater/1.0",
+                "Accept-Encoding": "identity",
+            })
+            with _urlrq.urlopen(zip_req, timeout=120) as r:
+                if r.status >= 400:
+                    raise RuntimeError(f"HTTP {r.status}")
                 with open(zip_path, "wb") as f:
-                    for chunk in r.iter_content(chunk_size=64 * 1024):
-                        if chunk:
-                            downloaded += len(chunk)
-                            if downloaded > MAX_DOWNLOAD:
-                                raise RuntimeError(
-                                    f"Téléchargement > {MAX_DOWNLOAD // (1024*1024)} Mo — abandon."
-                                )
-                            f.write(chunk)
+                    while True:
+                        chunk = r.read(64 * 1024)
+                        if not chunk:
+                            break
+                        downloaded += len(chunk)
+                        if downloaded > MAX_DOWNLOAD:
+                            raise RuntimeError(
+                                f"Téléchargement > {MAX_DOWNLOAD // (1024*1024)} Mo — abandon."
+                            )
+                        f.write(chunk)
 
             # 2. Extraction
             self.after(0, lambda: self._set_update_status(

@@ -20,9 +20,10 @@ class Colors:
     text_secondary = "#b0b0b0"  # sous-titres, descriptions
     text_muted     = "#808080"  # placeholders, infos discrètes
 
-    # Accents
-    accent         = "#d36531"  # orange brand (boutons primaires)
-    accent_hover   = "#e07642"
+    # Accents (palette bleue broadcast)
+    accent         = "#1f6aa5"  # bleu primaire (boutons primaires, item sidebar actif)
+    accent_hover   = "#2a7ec0"
+    accent_dark    = "#144870"  # variante foncée (badges, états pressés)
     green_ok       = "#4ec85a"
     green_hover    = "#5ed46a"
     red_danger     = "#dc4646"
@@ -292,6 +293,93 @@ def icon_chevron_right(size=20, color=Colors.text_secondary):
             (int(size * 0.64), int(size * 0.50)),
             (int(size * 0.40), int(size * 0.78))],
            fill=c, width=2, joint="curve")
+    return img
+
+
+def icon_save(size=20, color=Colors.text_primary):
+    """Icône disquette / save (carré avec coin coupé + label intérieur)."""
+    img, d = _new_canvas(size)
+    c = _hex_to_rgba(color)
+    m = int(size * 0.15)
+    # Contour disquette (carré avec coin haut-droit coupé)
+    pts = [
+        (m, m),
+        (size - m - int(size * 0.15), m),
+        (size - m, m + int(size * 0.15)),
+        (size - m, size - m),
+        (m, size - m),
+    ]
+    d.polygon(pts, outline=c, width=2)
+    # Label haut (slot d'écriture)
+    d.rectangle([int(size * 0.30), m,
+                 int(size * 0.70), int(size * 0.32)], outline=c, width=2)
+    # Étiquette interne en bas
+    d.rectangle([int(size * 0.28), int(size * 0.55),
+                 int(size * 0.72), int(size * 0.80)], outline=c, width=2)
+    return img
+
+
+def icon_mail_send(size=20, color=Colors.text_primary):
+    """Avion en papier (envoi)."""
+    img, d = _new_canvas(size)
+    c = _hex_to_rgba(color)
+    d.polygon([
+        (int(size * 0.15), int(size * 0.78)),
+        (int(size * 0.85), int(size * 0.22)),
+        (int(size * 0.55), int(size * 0.85)),
+        (int(size * 0.45), int(size * 0.58)),
+        (int(size * 0.20), int(size * 0.48)),
+    ], outline=c, width=2)
+    return img
+
+
+def icon_briefcase(size=20, color=Colors.text_secondary):
+    """Mallette (catégorie travail / contrat)."""
+    img, d = _new_canvas(size)
+    c = _hex_to_rgba(color)
+    # Corps
+    d.rectangle([int(size * 0.15), int(size * 0.38),
+                 int(size * 0.85), int(size * 0.82)], outline=c, width=2)
+    # Poignée
+    d.line([(int(size * 0.40), int(size * 0.38)),
+            (int(size * 0.40), int(size * 0.25)),
+            (int(size * 0.60), int(size * 0.25)),
+            (int(size * 0.60), int(size * 0.38))], fill=c, width=2)
+    # Séparation centrale
+    d.line([(int(size * 0.15), int(size * 0.55)),
+            (int(size * 0.85), int(size * 0.55))], fill=c, width=2)
+    return img
+
+
+def icon_pin(size=20, color=Colors.text_secondary):
+    """Pin / map marker."""
+    img, d = _new_canvas(size)
+    c = _hex_to_rgba(color)
+    cx = size // 2
+    # Goutte
+    d.arc([int(size * 0.20), int(size * 0.15),
+           int(size * 0.80), int(size * 0.75)], 0, 360, fill=c, width=2)
+    # Cercle centre
+    d.ellipse([cx - 3, int(size * 0.38), cx + 3, int(size * 0.50)], outline=c, width=1)
+    # Pointe bas
+    d.line([(cx, int(size * 0.65)), (cx, int(size * 0.88))], fill=c, width=2)
+    return img
+
+
+def icon_building(size=20, color=Colors.text_secondary):
+    """Immeuble (entreprise)."""
+    img, d = _new_canvas(size)
+    c = _hex_to_rgba(color)
+    # Contour
+    d.rectangle([int(size * 0.20), int(size * 0.18),
+                 int(size * 0.80), int(size * 0.85)], outline=c, width=2)
+    # Fenêtres (3 lignes × 2 colonnes)
+    for row in range(3):
+        for col in range(2):
+            x1 = int(size * (0.30 + col * 0.25))
+            y1 = int(size * (0.28 + row * 0.18))
+            d.rectangle([x1, y1, x1 + int(size * 0.12), y1 + int(size * 0.10)],
+                        outline=c, width=1)
     return img
 
 

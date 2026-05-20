@@ -27,7 +27,7 @@ ICONS = theme
 # En mode source on retombe sur le dossier du projet pour ne pas
 # casser le développement habituel.
 CONFIG_PATH = str(app_paths.config_path())
-APP_VERSION = "1.0.6"
+APP_VERSION = "1.0.7"
 SUPPORT_EMAIL = "candidaturebot.ai@gmail.com"
 
 # 🌐 URL du manifest de mise à jour.
@@ -221,6 +221,20 @@ class App(ctk.CTk):
             font=ctk.CTkFont(size=18, weight="bold")
         ).grid(row=0, column=0, padx=20, pady=(30, 25))
 
+        # Icônes paint pour chaque entrée (cache : actif blanc / inactif gris)
+        def _mk(fn):
+            inactive = theme.ctk_icon(fn, size=18, color=theme.Colors.text_secondary)
+            active = theme.ctk_icon(fn, size=18, color="#FFFFFF")
+            return inactive, active
+
+        self._nav_icons = {
+            "RECHERCHE":    _mk(theme.icon_search),
+            "CANDIDATURES": _mk(theme.icon_list),
+            "ROUTINE":      _mk(theme.icon_loop),
+            "MES INFOS":    _mk(theme.icon_user),
+            "PARAMÈTRES":   _mk(theme.icon_settings),
+        }
+
         nav = [
             ("RECHERCHE",   self.show_search),
             ("CANDIDATURES", self.show_tracker),
@@ -230,8 +244,10 @@ class App(ctk.CTk):
         ]
         self.nav_btns = {}
         for i, (label, cmd) in enumerate(nav, 1):
+            inactive_icon, _active_icon = self._nav_icons[label]
             b = ctk.CTkButton(
                 self.sidebar, text=label, command=cmd,
+                image=inactive_icon, compound="left",
                 height=42, anchor="w", fg_color="transparent",
                 text_color=THEME.text_secondary,
                 hover_color=THEME.bg_hover,
@@ -240,26 +256,31 @@ class App(ctk.CTk):
             b.grid(row=i, column=0, padx=10, pady=3, sticky="ew")
             self.nav_btns[label] = b
 
+        # Bouton d'aide en bas du sidebar (icône paint question circulaire)
+        help_icon = theme.ctk_icon(theme.icon_question, size=20,
+                                    color=theme.Colors.text_secondary)
         ctk.CTkButton(
-            self.sidebar, text="?",
+            self.sidebar, text="", image=help_icon,
             width=34, height=34, corner_radius=17,
             fg_color=THEME.bg_panel_alt, hover_color=THEME.bg_hover,
-            text_color=THEME.text_secondary,
-            font=ctk.CTkFont(family="Helvetica", size=16, weight="bold"),
             command=self._open_help_window
         ).grid(row=11, column=0, padx=15, pady=(0, 15), sticky="w")
 
     def _set_active(self, label):
         for l, b in self.nav_btns.items():
+            inactive_icon, _ = self._nav_icons.get(l, (None, None))
             b.configure(
                 fg_color="transparent",
                 text_color=THEME.text_secondary,
+                image=inactive_icon,
             )
         if label in self.nav_btns:
+            _, active_icon = self._nav_icons.get(label, (None, None))
             self.nav_btns[label].configure(
                 fg_color=THEME.accent,
                 hover_color=THEME.accent_hover,
                 text_color="white",
+                image=active_icon,
             )
 
     def _clear_main(self):
@@ -421,6 +442,8 @@ class App(ctk.CTk):
 
         self.search_btn = ctk.CTkButton(
             btn_frame, text="Lancer la recherche",
+            image=theme.ctk_icon(theme.icon_search, size=18, color="#FFFFFF"),
+            compound="left",
             command=self.run_search, height=42,
             fg_color=THEME.accent, hover_color=THEME.accent_hover,
             font=ctk.CTkFont(size=14, weight="bold")
@@ -681,19 +704,28 @@ class App(ctk.CTk):
                 font=ctk.CTkFont(size=14, weight="bold")
             ).grid(row=1, column=1, sticky="w", padx=4, pady=(2, 0))
 
-            email_suffix = f"   ·  {o.get('email')}" if o.get("email") else ""
-            sep = "   ·   "
-            parts = [
-                o.get('entreprise', '?'),
-                o.get('lieu', '?'),
-                o.get('contrat', ''),
+            # Sous-ligne info : icône paint + texte pour chaque champ
+            info_row = ctk.CTkFrame(card, fg_color="transparent")
+            info_row.grid(row=2, column=1, sticky="w", padx=4, pady=(0, 8))
+            _info_specs = [
+                (theme.icon_building, o.get('entreprise', '')),
+                (theme.icon_pin,      o.get('lieu', '')),
+                (theme.icon_briefcase, o.get('contrat', '')),
             ]
-            parts = [p for p in parts if p]
-            ctk.CTkLabel(
-                card,
-                text=sep.join(parts) + email_suffix,
-                text_color=THEME.text_secondary, font=ctk.CTkFont(size=12)
-            ).grid(row=2, column=1, sticky="w", padx=4, pady=(0, 8))
+            if o.get("email"):
+                _info_specs.append((theme.icon_mail, o.get('email')))
+            for icon_fn, txt in _info_specs:
+                if not txt:
+                    continue
+                lbl = ctk.CTkLabel(
+                    info_row, text=str(txt),
+                    image=theme.ctk_icon(icon_fn, size=14,
+                                          color=THEME.text_secondary),
+                    compound="left",
+                    text_color=THEME.text_secondary,
+                    font=ctk.CTkFont(size=12)
+                )
+                lbl.pack(side="left", padx=(0, 14))
 
             btn_col = ctk.CTkFrame(card, fg_color="transparent")
             btn_col.grid(row=0, column=2, rowspan=3, padx=12, pady=8, sticky="e")
@@ -1529,8 +1561,10 @@ class App(ctk.CTk):
 
         ctk.CTkButton(
             select_row, text="Supprimer la sélection",
+            image=theme.ctk_icon(theme.icon_trash, size=16, color="#FFFFFF"),
+            compound="left",
             command=lambda: self._tracker_delete_selected(scroll_frame),
-            height=30, width=200,
+            height=30, width=220,
             fg_color=THEME.red_danger, hover_color=THEME.red_hover
         ).pack(side="right", padx=10, pady=6)
 
@@ -2804,6 +2838,8 @@ class App(ctk.CTk):
 
         ctk.CTkButton(
             btn_row, text="Sauvegarder le profil",
+            image=theme.ctk_icon(theme.icon_save, size=18, color="#FFFFFF"),
+            compound="left",
             command=self.save_profile, height=42,
             fg_color=THEME.accent, hover_color=THEME.accent_hover,
             font=ctk.CTkFont(size=14, weight="bold")
@@ -3341,8 +3377,10 @@ class App(ctk.CTk):
                             sticky="w", padx=5, pady=(0, 5))
         ctk.CTkButton(
             update_btn_row, text="Vérifier les mises à jour",
+            image=theme.ctk_icon(theme.icon_refresh, size=16, color="#FFFFFF"),
+            compound="left",
             command=self._check_for_updates,
-            height=36, width=240,
+            height=36, width=260,
             fg_color=THEME.accent, hover_color=THEME.accent_hover
         ).pack(side="left", padx=(0, 6))
 
@@ -3355,6 +3393,8 @@ class App(ctk.CTk):
 
         ctk.CTkButton(
             self.main, text="Sauvegarder les paramètres",
+            image=theme.ctk_icon(theme.icon_save, size=18, color="#FFFFFF"),
+            compound="left",
             command=self.save_settings, height=42,
             fg_color=THEME.accent, hover_color=THEME.accent_hover,
             font=ctk.CTkFont(size=14, weight="bold")

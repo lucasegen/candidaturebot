@@ -1,6 +1,6 @@
 {
-  "version": "1.0.12",
-  "url": "https://github.com/lucasegen/candidaturebot/releases/download/v1.0.12/CandidatureBot-1.0.12.zip",
-  "notes": "Fix critique Scrapling : data files manquants.\n\nDepuis browserforge 1.2.4, les fichiers de définition réseau (fingerprint-network, header-network, headers-order...) sont dans un package séparé apify_fingerprint_datapoints. PyInstaller ne le bundlait pas → FileNotFoundError au premier appel de Scrapling.\n\nAjouté collect_all('apify_fingerprint_datapoints') au .spec → toutes les fonctions Scrapling marchent enfin (Indeed, Talent.com, Jooble, HelloWork).",
+  "version": "1.0.13",
+  "url": "https://github.com/lucasegen/candidaturebot/releases/download/v1.0.13/CandidatureBot-1.0.13.zip",
+  "notes": "Fix : ouverture multiple de la fenêtre d'aide.\n\nCliquer plusieurs fois sur le bouton '?' ouvrait plusieurs fenêtres d'aide. Maintenant : si une fenêtre est déjà ouverte, on la ramène au premier plan au lieu d'en créer une nouvelle. Au close, la référence est libérée pour le prochain clic.",
   "released": "2026-05-20"
 }

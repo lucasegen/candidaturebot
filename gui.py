@@ -27,7 +27,7 @@ ICONS = theme
 # En mode source on retombe sur le dossier du projet pour ne pas
 # casser le développement habituel.
 CONFIG_PATH = str(app_paths.config_path())
-APP_VERSION = "1.0.12"
+APP_VERSION = "1.0.13"
 SUPPORT_EMAIL = "candidaturebot.ai@gmail.com"
 
 # 🌐 URL du manifest de mise à jour.
@@ -3840,7 +3840,24 @@ class App(ctk.CTk):
     # ❓ AIDE : manuel PDF + formulaire de support
     # ══════════════════════════════════════════════════════════════
     def _open_help_window(self):
+        # Anti-doublon : si déjà ouverte, on la ramène au premier plan
+        existing = getattr(self, "_help_win", None)
+        if existing is not None:
+            try:
+                if existing.winfo_exists():
+                    existing.deiconify()
+                    existing.lift()
+                    existing.focus_force()
+                    bring_to_front(existing)
+                    return
+            except Exception:
+                pass
         win = ctk.CTkToplevel(self)
+        self._help_win = win
+        # Quand le user ferme, on libère la référence
+        win.protocol("WM_DELETE_WINDOW",
+                     lambda w=win: (setattr(self, "_help_win", None),
+                                    w.destroy()))
         win.title("Aide")
         win.geometry("440x290")
         win.resizable(False, False)

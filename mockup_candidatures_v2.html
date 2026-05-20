@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Candidature Bot — refonte v2 (table + workflow)</title>
+<style>
+  :root {
+    --bg: #1f1f23;
+    --bg-alt: #28282d;
+    --bg-hover: #33333a;
+    --border: #3a3a40;
+    --text: #e8e8e8;
+    --text-2: #b0b0b0;
+    --text-3: #808080;
+    --accent: #1f6aa5;
+    --accent-h: #2a7ec0;
+    --green: #4ec85a;
+    --blue: #5ba7d6;
+    --amber: #f5b041;
+    --purple: #9b59b6;
+    --red: #dc4646;
+    --grey: #7f8c8d;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", Helvetica, sans-serif;
+    font-size: 14px;
+  }
+  body { padding: 40px 24px 80px; max-width: 1280px; margin: 0 auto; }
+
+  h1 { font-weight: 700; letter-spacing: 1px; margin: 0 0 8px; font-size: 28px; }
+  h2.opt {
+    font-size: 22px; margin: 60px 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 12px;
+  }
+  h2.opt .tag {
+    font-size: 11px; font-weight: 700; letter-spacing: 1px;
+    background: var(--accent); color: white;
+    padding: 4px 10px; border-radius: 4px;
+  }
+  .intro { color: var(--text-2); margin-bottom: 12px; }
+
+  .frame {
+    background: var(--bg-alt);
+    border-radius: 12px;
+    padding: 24px;
+    border: 1px solid var(--border);
+    margin-bottom: 30px;
+  }
+  .page-h {
+    font-size: 20px; font-weight: 700; letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+  .page-sub { color: var(--text-3); font-size: 13px; margin-bottom: 18px; }
+
+  /* ─── stats ─── */
+  .stats {
+    display: flex; gap: 10px; align-items: center;
+    background: rgba(255,255,255,0.03); padding: 12px 16px;
+    border-radius: 8px; margin-bottom: 18px;
+    font-size: 13px;
+  }
+  .stat { padding: 4px 10px; border-radius: 6px; font-weight: 600; }
+  .stat.total { background: var(--bg-hover); color: var(--text); }
+  .stat.gris   { background: var(--grey);   color: white; }
+  .stat.bleu   { background: var(--blue);   color: white; }
+  .stat.amber  { background: var(--amber);  color: white; }
+  .stat.purple { background: var(--purple); color: white; }
+  .stat.green  { background: var(--green);  color: white; }
+  .stat.red    { background: var(--red);    color: white; }
+
+  /* ─── action bar ─── */
+  .action-bar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px;
+    background: var(--bg);
+    border-radius: 8px; margin-bottom: 12px;
+    font-size: 13px;
+  }
+  .action-bar .check { width: 18px; height: 18px; border: 2px solid var(--border); border-radius: 4px; cursor: pointer; }
+  .action-bar .spacer { flex: 1; }
+  .btn-primary {
+    padding: 8px 14px; border-radius: 999px;
+    background: var(--accent); color: white;
+    border: none; cursor: pointer; font-weight: 600; font-size: 12px;
+  }
+  .btn-primary:hover { background: var(--accent-h); }
+  .btn-ghost {
+    padding: 8px 14px; border-radius: 999px;
+    background: transparent; color: var(--text-2);
+    border: 1px solid var(--border);
+    cursor: pointer; font-weight: 500; font-size: 12px;
+  }
+  .btn-ghost:hover { background: var(--bg-hover); color: var(--text); }
+  .btn-danger {
+    padding: 8px 14px; border-radius: 999px;
+    background: var(--red); color: white;
+    border: none; cursor: pointer; font-weight: 600; font-size: 12px;
+  }
+  .btn-danger:hover { background: #e85a5a; }
+
+  /* ─── filtre + search ─── */
+  .filters {
+    display: flex; gap: 10px; margin-bottom: 14px; align-items: center;
+  }
+  .filters input.search {
+    flex: 1; background: var(--bg); border: 1px solid var(--border);
+    color: var(--text); padding: 9px 14px; border-radius: 8px;
+    font-size: 13px; outline: none;
+  }
+  .filters input.search:focus { border-color: var(--accent); }
+  .filters select {
+    background: var(--bg); border: 1px solid var(--border);
+    color: var(--text); padding: 9px 12px; border-radius: 8px;
+    font-size: 13px; outline: none;
+  }
+
+  /* ─── tableau ─── */
+  .tbl {
+    background: var(--bg);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .table-row {
+    display: grid;
+    grid-template-columns: 32px 120px 1fr 140px 80px;
+    gap: 14px; align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.12s;
+    cursor: pointer;
+  }
+  .table-row:last-child { border-bottom: none; }
+  .table-row:hover { background: var(--bg-hover); }
+  .table-row.head {
+    background: rgba(255,255,255,0.02);
+    font-size: 11px; font-weight: 700;
+    color: var(--text-3); text-transform: uppercase; letter-spacing: 1.2px;
+    border-bottom: 2px solid var(--border);
+    cursor: default;
+    padding: 14px 16px;
+  }
+  .table-row.head:hover { background: rgba(255,255,255,0.02); }
+  .check2 { width: 16px; height: 16px; border: 2px solid var(--border); border-radius: 4px; cursor: pointer; }
+  .check2.checked { background: var(--accent); border-color: var(--accent); }
+  .check2.checked::after {
+    content: '✓'; color: white; font-size: 12px;
+    display: flex; align-items: center; justify-content: center;
+    line-height: 1; padding-top: 1px;
+  }
+  .status-dot {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 12px; font-weight: 600;
+  }
+  .status-dot .pill {
+    width: 8px; height: 8px; border-radius: 50%;
+  }
+  .table-row .entreprise { font-weight: 700; color: var(--text); font-size: 14px; }
+  .table-row .poste { color: var(--text-2); font-size: 13px; font-weight: 400; }
+  .table-row .grey { color: var(--text-3); font-size: 12px; }
+  .table-row .lien-btn {
+    padding: 6px 12px; border-radius: 6px;
+    background: var(--bg-alt); border: 1px solid var(--border);
+    color: var(--blue); font-size: 12px; font-weight: 600;
+    cursor: pointer; transition: all 0.12s;
+    text-align: center;
+  }
+  .table-row .lien-btn:hover { background: var(--bg-hover); border-color: var(--blue); }
+  .table-row .lien-btn.disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .note {
+    margin-top: 10px; padding: 10px 14px;
+    background: rgba(31, 106, 165, 0.08);
+    border-left: 3px solid var(--accent);
+    font-size: 12px; color: var(--text-2);
+    border-radius: 4px;
+  }
+
+  /* ============================================ */
+  /*  WORKFLOW FULLSCREEN (modal)                  */
+  /* ============================================ */
+  .workflow-frame {
+    position: relative;
+    background: var(--bg-alt);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    margin-top: 30px;
+  }
+  .workflow-header {
+    background: var(--bg);
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .workflow-header .title { font-weight: 700; font-size: 16px; }
+  .workflow-header .meta { color: var(--text-3); font-size: 12px; margin-top: 2px; }
+  .workflow-header .close-btn {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--bg-hover); color: var(--text-2);
+    border: none; cursor: pointer; font-size: 18px; font-weight: 700;
+  }
+  .workflow-header .close-btn:hover { background: var(--red); color: white; }
+
+  /* Stepper */
+  .stepper {
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px; gap: 8px;
+    background: var(--bg);
+  }
+  .step {
+    display: flex; align-items: center; gap: 8px;
+    color: var(--text-3); font-size: 13px; font-weight: 600;
+  }
+  .step .num {
+    width: 24px; height: 24px; border-radius: 50%;
+    background: var(--bg-hover); color: var(--text-3);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700;
+    border: 2px solid var(--border);
+  }
+  .step.done .num { background: var(--green); color: white; border-color: var(--green); }
+  .step.active .num { background: var(--accent); color: white; border-color: var(--accent); }
+  .step.active { color: var(--text); }
+  .step.done { color: var(--text); }
+  .step .conn { width: 40px; height: 2px; background: var(--border); }
+  .step.done + .step .conn { background: var(--green); }
+
+  /* Workflow body */
+  .wf-body { padding: 24px; min-height: 480px; }
+  .wf-step-title {
+    font-size: 18px; font-weight: 700;
+    margin-bottom: 6px; color: var(--text);
+  }
+  .wf-step-sub {
+    font-size: 13px; color: var(--text-2); margin-bottom: 18px;
+  }
+  .wf-textarea {
+    width: 100%; min-height: 200px;
+    background: var(--bg); border: 1px solid var(--border);
+    color: var(--text); padding: 14px;
+    border-radius: 8px; font-family: inherit; font-size: 13px;
+    resize: vertical; outline: none;
+    line-height: 1.55;
+  }
+  .wf-textarea:focus { border-color: var(--accent); }
+
+  .wf-foot {
+    display: flex; justify-content: space-between; gap: 10px;
+    padding: 16px 24px;
+    background: var(--bg);
+    border-top: 1px solid var(--border);
+  }
+
+  /* Step 3 — méthodes d'envoi */
+  .method-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+  }
+  .method {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .method:hover { border-color: var(--accent); background: var(--bg-hover); }
+  .method.recommended {
+    border-color: var(--green);
+    background: rgba(78, 200, 90, 0.04);
+  }
+  .method .head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .method .head h4 { margin: 0; font-size: 14px; font-weight: 700; }
+  .method .head .badge {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.5px;
+    padding: 3px 8px; border-radius: 4px;
+    background: var(--green); color: white;
+    text-transform: uppercase;
+  }
+  .method .desc {
+    color: var(--text-2); font-size: 12px;
+    line-height: 1.5; margin-bottom: 10px;
+  }
+  .method .cta {
+    color: var(--accent);
+    font-size: 12px; font-weight: 600;
+  }
+
+  .info-block {
+    background: rgba(255, 200, 100, 0.06);
+    border-left: 3px solid var(--amber);
+    padding: 12px 14px;
+    border-radius: 4px;
+    font-size: 12px; color: var(--text-2);
+    margin-bottom: 18px;
+  }
+  .info-block b { color: var(--amber); }
+
+  .preview-section { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .preview-section h5 {
+    font-size: 12px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1px; color: var(--text-3); margin: 0 0 8px;
+  }
+  .preview-block {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    font-size: 12px;
+    line-height: 1.55;
+    color: var(--text-2);
+    max-height: 240px;
+    overflow-y: auto;
+  }
+  .preview-block strong { color: var(--text); }
+
+  .file-list {
+    list-style: none; padding: 0; margin: 0;
+  }
+  .file-list li {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 0;
+    color: var(--text-2); font-size: 12px;
+  }
+  .file-list li .ic {
+    width: 16px; text-align: center; color: var(--accent);
+    font-weight: 700;
+  }
+</style>
+</head>
+<body>
+
+  <h1>Refonte v2 — Candidatures · Tableau + Workflow</h1>
+  <p class="intro">Vue tableau dense (sans source, sans date, sans ⋯) → click ligne → workflow fullscreen pour préparer/envoyer une candidature.</p>
+
+  <!-- ============================ -->
+  <!-- ÉCRAN 1 : VUE TABLEAU         -->
+  <!-- ============================ -->
+  <h2 class="opt"><span class="tag">ÉCRAN 1</span> Vue tableau (page Candidatures)</h2>
+  <div class="frame">
+    <div class="page-h">MES CANDIDATURES</div>
+    <div class="page-sub">6 candidatures · 5 à envoyer · 1 entretien</div>
+
+    <div class="stats">
+      <div class="stat total">Total : 6</div>
+      <div class="stat gris">À envoyer : 5</div>
+      <div class="stat purple">Entretien : 1</div>
+    </div>
+
+    <div class="filters">
+      <input class="search" type="text" placeholder="🔎 Rechercher par entreprise ou poste...">
+      <select>
+        <option>Tous statuts</option>
+        <option>À envoyer (5)</option>
+        <option>Envoyée</option>
+        <option>Relancée</option>
+        <option>Entretien (1)</option>
+        <option>Refusée</option>
+        <option>Acceptée</option>
+      </select>
+      <select>
+        <option>Tous lieux</option>
+        <option>Paris</option>
+        <option>Issy-les-Moulineaux</option>
+      </select>
+    </div>
+
+    <div class="action-bar">
+      <div class="check"></div>
+      <span>Tout sélectionner</span>
+      <span style="color: var(--text-3);">·  2 sélectionnée(s)</span>
+      <div class="spacer"></div>
+      <button class="btn-ghost">📊 Exporter CSV</button>
+      <button class="btn-ghost">📁 Préparer dossiers</button>
+      <button class="btn-primary">Envoyer la sélection</button>
+      <button class="btn-danger">Supprimer la sélection</button>
+    </div>
+
+    <div class="tbl">
+      <div class="table-row head">
+        <div></div>
+        <div>Statut ↓</div>
+        <div>Entreprise / Poste</div>
+        <div>Lieu</div>
+        <div style="text-align:center;">Lien</div>
+      </div>
+
+      <div class="table-row" onclick="alert('Click sur la ligne → ouvre le Workflow Fullscreen (voir Écran 2 ci-dessous)');">
+        <div><div class="check2 checked"></div></div>
+        <div class="status-dot"><span class="pill" style="background: var(--purple);"></span>Entretien</div>
+        <div><span class="entreprise">Violin Phonix</span> <span class="poste">— Monteur vidéo</span></div>
+        <div class="grey">Ville de Paris</div>
+        <div><button class="lien-btn">↗ Voir</button></div>
+      </div>
+
+      <div class="table-row" onclick="alert('Click sur la ligne → ouvre le Workflow Fullscreen');">
+        <div><div class="check2 checked"></div></div>
+        <div class="status-dot"><span class="pill" style="background: var(--grey);"></span>À envoyer</div>
+        <div><span class="entreprise">Manucurist</span> <span class="poste">— Creative Video Producer · CDI</span></div>
+        <div class="grey">Paris</div>
+        <div><button class="lien-btn">↗ Voir</button></div>
+      </div>
+
+      <div class="table-row" onclick="alert('Click sur la ligne → ouvre le Workflow Fullscreen');">
+        <div><div class="check2"></div></div>
+        <div class="status-dot"><span class="pill" style="background: var(--grey);"></span>À envoyer</div>
+        <div><span class="entreprise">STAGE</span> <span class="poste">— Assistant Créateur de Contenus Pop Cul</span></div>
+        <div class="grey">Issy-les-Moulineaux</div>
+        <div><button class="lien-btn">↗ Voir</button></div>
+      </div>
+
+      <div class="table-row" onclick="alert('Click sur la ligne → ouvre le Workflow Fullscreen');">
+        <div><div class="check2"></div></div>
+        <div class="status-dot"><span class="pill" style="background: var(--grey);"></span>À envoyer</div>
+        <div><span class="entreprise">COJEAN</span> <span class="poste">— Équipier polyvalent F/H</span></div>
+        <div class="grey">Paris</div>
+        <div><button class="lien-btn">↗ Voir</button></div>
+      </div>
+
+      <div class="table-row" onclick="alert('Click sur la ligne → ouvre le Workflow Fullscreen');">
+        <div><div class="check2"></div></div>
+        <div class="status-dot"><span class="pill" style="background: var(--grey);"></span>À envoyer</div>
+        <div><span class="entreprise">Lucas</span> <span class="poste">— Petite copine à temps plein</span></div>
+        <div class="grey">Paris</div>
+        <div><button class="lien-btn disabled">↗ Voir</button></div>
+      </div>
+    </div>
+
+    <div class="note">
+      <b>Comportement</b> :
+      <ul style="margin: 6px 0 0; padding-left: 22px;">
+        <li>Click ligne (sauf checkbox / lien) → ouvre le <b>workflow fullscreen</b> (voir Écran 2)</li>
+        <li>Click checkbox → sélectionne pour bulk action (delete, export dossiers, envoi en lot)</li>
+        <li>Click "↗ Voir" → ouvre l'offre dans le navigateur direct</li>
+        <li>Click sur "Statut ↓" → change le tri (statut, entreprise A→Z, etc.)</li>
+        <li>Recherche + filtre statut + filtre lieu en haut</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ============================ -->
+  <!-- ÉCRAN 2 : WORKFLOW             -->
+  <!-- ============================ -->
+  <h2 class="opt"><span class="tag" style="background: var(--purple);">ÉCRAN 2</span> Workflow fullscreen — Étape 1 : Lettre IA</h2>
+  <div class="workflow-frame">
+    <div class="workflow-header">
+      <div>
+        <div class="title">Manucurist — Creative Video Producer · CDI</div>
+        <div class="meta">Paris · LinkedIn · À envoyer</div>
+      </div>
+      <button class="close-btn">×</button>
+    </div>
+
+    <div class="stepper">
+      <div class="step active">
+        <div class="num">1</div>
+        <div>Lettre de motivation</div>
+      </div>
+      <div class="step"><div class="conn"></div></div>
+      <div class="step">
+        <div class="num">2</div>
+        <div>Mail d'accompagnement</div>
+      </div>
+      <div class="step"><div class="conn"></div></div>
+      <div class="step">
+        <div class="num">3</div>
+        <div>Envoi</div>
+      </div>
+    </div>
+
+    <div class="wf-body">
+      <div class="wf-step-title">1. Lettre de motivation</div>
+      <div class="wf-step-sub">Génère via IA, relis, modifie si besoin. Sera exportée en PDF.</div>
+
+      <textarea class="wf-textarea">Madame, Monsieur,
+
+Passionné par l'audiovisuel et la création de contenu, c'est avec un vif intérêt que j'ai découvert votre offre pour le poste de Creative Video Producer au sein de Manucurist.
+
+Au cours de mes 3 années d'expérience, j'ai développé de solides compétences en montage, motion design et réalisation. Ces expertises me permettraient de contribuer efficacement à vos projets vidéo.
+
+Convaincu que mon profil correspond aux attentes de votre équipe, je serais ravi de vous présenter ma candidature lors d'un entretien.
+
+Dans l'attente de votre retour, je vous adresse mes sincères salutations.
+
+Cordialement,
+Lucas Egensperger</textarea>
+
+      <div style="display: flex; gap: 10px; margin-top: 14px;">
+        <button class="btn-ghost">↻ Régénérer</button>
+        <button class="btn-ghost">📥 Importer ma lettre type</button>
+      </div>
+    </div>
+
+    <div class="wf-foot">
+      <button class="btn-ghost">Annuler</button>
+      <div>
+        <button class="btn-ghost">Sauvegarder le brouillon</button>
+        <button class="btn-primary">Suivant : Mail →</button>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="opt"><span class="tag" style="background: var(--purple);">ÉCRAN 2</span> Workflow — Étape 2 : Mail d'accompagnement</h2>
+  <div class="workflow-frame">
+    <div class="workflow-header">
+      <div>
+        <div class="title">Manucurist — Creative Video Producer · CDI</div>
+        <div class="meta">Paris · LinkedIn</div>
+      </div>
+      <button class="close-btn">×</button>
+    </div>
+
+    <div class="stepper">
+      <div class="step done"><div class="num">✓</div><div>Lettre</div></div>
+      <div class="step"><div class="conn"></div></div>
+      <div class="step active"><div class="num">2</div><div>Mail</div></div>
+      <div class="step"><div class="conn"></div></div>
+      <div class="step"><div class="num">3</div><div>Envoi</div></div>
+    </div>
+
+    <div class="wf-body">
+      <div class="wf-step-title">2. Mail d'accompagnement (90 mots max)</div>
+      <div class="wf-step-sub">Court, professionnel, mentionne les pièces jointes (lettre + CV).</div>
+
+      <textarea class="wf-textarea" style="min-height: 160px;">Objet : Candidature au poste de Creative Video Producer
+
+Bonjour,
+
+Actuellement à la recherche d'un poste de Monteur Vidéo, votre offre pour Creative Video Producer chez Manucurist a retenu toute mon attention.
+
+Vous trouverez ci-joint ma lettre de motivation et mon CV détaillant mon parcours.
+
+Je reste disponible pour échanger lors d'un entretien à votre convenance.
+
+Cordialement,
+Lucas Egensperger</textarea>
+
+      <div style="display: flex; gap: 10px; margin-top: 14px;">
+        <button class="btn-ghost">↻ Régénérer</button>
+      </div>
+    </div>
+
+    <div class="wf-foot">
+      <button class="btn-ghost">← Précédent</button>
+      <div>
+        <button class="btn-ghost">Sauvegarder</button>
+        <button class="btn-primary">Suivant : Envoi →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- WORKFLOW ÉTAPE 3 — ENVOI -->
+  <h2 class="opt"><span class="tag" style="background: var(--green);">ÉCRAN 2</span> Workflow — Étape 3 : Envoi (le crucial !)</h2>
+  <div class="workflow-frame">
+    <div class="workflow-header">
+      <div>
+        <div class="title">Manucurist — Creative Video Producer · CDI</div>
+        <div class="meta">Paris · LinkedIn</div>
+      </div>
+      <button class="close-btn">×</button>
+    </div>
+
+    <div class="stepper">
+      <div class="step done"><div class="num">✓</div><div>Lettre</div></div>
+      <div class="step"><div class="conn"></div></div>
+      <div class="step done"><div class="num">✓</div><div>Mail</div></div>
+      <div class="step"><div class="conn"></div></div>
+      <div class="step active"><div class="num">3</div><div>Envoi</div></div>
+    </div>
+
+    <div class="wf-body">
+      <div class="wf-step-title">3. Comment envoyer cette candidature ?</div>
+      <div class="wf-step-sub">Aucun email RH trouvé pour cette offre. Choisis ta méthode :</div>
+
+      <div class="info-block">
+        <b>⚠️ Email non détecté</b> — La plupart des offres LinkedIn n'incluent pas d'email direct (politique LinkedIn). Voici les 4 méthodes pour candidater :
+      </div>
+
+      <div class="method-grid">
+
+        <!-- Méthode 1 -->
+        <div class="method recommended" onclick="alert('Méthode 1 sélectionnée : Ouvrir l\'offre LinkedIn');">
+          <div class="head">
+            <h4>1. Ouvrir l'offre</h4>
+            <span class="badge">Recommandé</span>
+          </div>
+          <div class="desc">
+            Ouvre l'annonce dans ton navigateur. Tu pourras postuler directement via le bouton du site (formulaire intégré LinkedIn, formulaire entreprise, etc.).
+          </div>
+          <div class="cta">↗ Ouvrir l'offre dans Safari</div>
+        </div>
+
+        <!-- Méthode 2 -->
+        <div class="method" onclick="alert('Méthode 2 : Préparer un dossier ZIP');">
+          <div class="head">
+            <h4>2. Préparer un dossier</h4>
+          </div>
+          <div class="desc">
+            Crée un dossier <code>Candidature_Manucurist.zip</code> contenant :
+            <ul class="file-list">
+              <li><span class="ic">📄</span> Lettre_Manucurist.pdf</li>
+              <li><span class="ic">📄</span> CV_Lucas.pdf</li>
+              <li><span class="ic">📄</span> mail.txt (à copier-coller)</li>
+            </ul>
+            Tu glisses dans n'importe quel formulaire web.
+          </div>
+          <div class="cta">📁 Générer et ouvrir le Finder</div>
+        </div>
+
+        <!-- Méthode 3 -->
+        <div class="method" onclick="alert('Méthode 3 : Copier dans le presse-papier');">
+          <div class="head">
+            <h4>3. Copier dans le presse-papier</h4>
+          </div>
+          <div class="desc">
+            <ul class="file-list">
+              <li><span class="ic">📋</span> Lettre (texte)</li>
+              <li><span class="ic">📋</span> Mail (texte)</li>
+              <li><span class="ic">📋</span> Les deux concaténés</li>
+            </ul>
+            Tu colles direct dans LinkedIn DM, formulaire web, WhatsApp pro, etc.
+          </div>
+          <div class="cta">📋 Copier la lettre</div>
+        </div>
+
+        <!-- Méthode 4 -->
+        <div class="method" onclick="alert('Méthode 4 : Apple Mail draft');">
+          <div class="head">
+            <h4>4. Ouvrir Apple Mail</h4>
+          </div>
+          <div class="desc">
+            Crée un brouillon dans Apple Mail avec le sujet, le corps et les 2 PDF en pièces jointes. Tu n'as plus qu'à taper le destinataire et cliquer Envoyer.
+          </div>
+          <div class="cta">✉ Créer le brouillon</div>
+        </div>
+
+      </div>
+
+      <div style="margin-top: 22px; padding: 14px; background: var(--bg); border-radius: 8px;">
+        <h5 style="margin: 0 0 10px; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-3);">Si tu as un email RH (option 5)</h5>
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <input class="search" type="text" placeholder="rh@manucurist.com" style="flex: 1;">
+          <button class="btn-primary">📧 Envoyer maintenant via Gmail</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="wf-foot">
+      <button class="btn-ghost">← Précédent</button>
+      <div>
+        <button class="btn-ghost">Marquer comme "À envoyer plus tard"</button>
+        <button class="btn-primary" style="background: var(--green);">✓ Marquer comme envoyée</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>Synthèse</b> :
+    <ul style="margin: 6px 0 0; padding-left: 22px;">
+      <li><b>Étape 1</b> : Lettre IA générée, éditable, sauvegardée en PDF</li>
+      <li><b>Étape 2</b> : Mail d'accompagnement court (90 mots), éditable</li>
+      <li><b>Étape 3</b> : 4 méthodes d'envoi adaptées au cas "pas d'email" — ouvrir l'offre / préparer dossier ZIP / copier presse-papier / Apple Mail</li>
+      <li>Possibilité de marquer "Envoyée plus tard" si tu prépares à l'avance, ou "Envoyée" pour fermer le workflow</li>
+    </ul>
+  </div>
+
+  <div style="position: sticky; bottom: 20px; display: flex; gap: 12px; justify-content: center; margin-top: 50px; padding: 16px; background: var(--bg-alt); border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+    <span style="align-self: center; color: var(--text-2); margin-right: 12px;"><b>Tu valides ce design ?</b></span>
+    <button class="btn-primary" onclick="alert('OK — j\'implémente la vue tableau + workflow fullscreen avec les 4 méthodes d\'envoi');" style="padding: 12px 22px; font-size: 14px;">✓ Valider et implémenter</button>
+    <button class="btn-ghost" onclick="alert('Donne-moi les ajustements souhaités');" style="padding: 12px 22px; font-size: 14px;">Ajuster avant</button>
+  </div>
+
+</body>
+</html>

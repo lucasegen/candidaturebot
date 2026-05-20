@@ -27,7 +27,7 @@ ICONS = theme
 # En mode source on retombe sur le dossier du projet pour ne pas
 # casser le développement habituel.
 CONFIG_PATH = str(app_paths.config_path())
-APP_VERSION = "1.0.15"
+APP_VERSION = "1.0.16"
 SUPPORT_EMAIL = "candidaturebot.ai@gmail.com"
 
 # 🌐 URL du manifest de mise à jour.
@@ -1659,114 +1659,158 @@ class App(ctk.CTk):
         self._remember_tab("tracker")
         self._clear_main()
 
-        header_row = ctk.CTkFrame(self.main, fg_color="transparent")
-        header_row.pack(fill="x", pady=(0, 5))
+        # En-tête
         ctk.CTkLabel(
-            header_row, text="MES CANDIDATURES",
+            self.main, text="MES CANDIDATURES",
             font=ctk.CTkFont(size=20, weight="bold")
-        ).pack(side="left")
+        ).pack(anchor="w", pady=(0, 4))
 
         candidatures = self.cfg.get("candidatures", [])
-
-        # Stats
         stats = {}
         for c in candidatures:
             s = c.get("statut", "À envoyer")
             stats[s] = stats.get(s, 0) + 1
 
-        stats_frame = ctk.CTkFrame(self.main, fg_color=THEME.bg_panel_alt, corner_radius=10)
-        stats_frame.pack(fill="x", pady=(0, 10))
-
-        COULEURS_STAT = {
-            "À envoyer": THEME.statut_a_envoyer, "Envoyée": THEME.statut_envoyee,
-            "Relancée":  THEME.statut_relancee, "Entretien": THEME.statut_entretien,
-            "Refusée":   THEME.statut_refusee, "Acceptée": THEME.statut_acceptee,
-        }
-
+        # Sous-titre stats compactes
+        substats = f"{len(candidatures)} candidatures"
+        if stats.get("À envoyer"):
+            substats += f"  ·  {stats['À envoyer']} à envoyer"
+        if stats.get("Entretien"):
+            substats += f"  ·  {stats['Entretien']} entretien"
         ctk.CTkLabel(
-            stats_frame,
-            text=f"Total : {len(candidatures)}",
-            font=ctk.CTkFont(size=13, weight="bold")
-        ).pack(side="left", padx=15, pady=10)
+            self.main, text=substats,
+            text_color=THEME.text_muted, font=ctk.CTkFont(size=12)
+        ).pack(anchor="w", pady=(0, 14))
 
-        for statut, count in stats.items():
-            ctk.CTkLabel(
-                stats_frame,
-                text=f"  {statut} : {count}  ",
-                fg_color=COULEURS_STAT.get(statut, "gray"),
-                corner_radius=6, font=ctk.CTkFont(size=11), text_color="white"
-            ).pack(side="left", padx=4, pady=10)
+        # ── Filtres : recherche + statut + lieu ────────────────
+        self._tracker_search_var = ctk.StringVar(value="")
+        self._tracker_filter_statut_var = ctk.StringVar(
+            value=self.cfg.get("ui", {}).get("tracker_filter", "Tous"))
+        self._tracker_filter_lieu_var = ctk.StringVar(value="Tous lieux")
 
-        # Barre d'action : filtre auto + envoyer tout + export
-        action_row = ctk.CTkFrame(self.main, fg_color="transparent")
-        action_row.pack(fill="x", pady=(0, 8))
+        filters_row = ctk.CTkFrame(self.main, fg_color="transparent")
+        filters_row.pack(fill="x", pady=(0, 10))
 
-        ctk.CTkLabel(action_row, text="Filtre :").pack(side="left", padx=(0, 8))
+        search_entry = ctk.CTkEntry(
+            filters_row, textvariable=self._tracker_search_var,
+            placeholder_text="Rechercher entreprise ou poste...",
+            height=36
+        )
+        search_entry.pack(side="left", fill="x", expand=True, padx=(0, 8))
 
-        scroll_frame = ctk.CTkScrollableFrame(self.main)
-        last_filter = self.cfg.get("ui", {}).get("tracker_filter", "Tous")
-        self.tracker_filter_var = ctk.StringVar(value=last_filter)
-
-        def on_filter_change(_=None):
-            self.cfg.setdefault("ui", {})["tracker_filter"] = self.tracker_filter_var.get()
+        def _on_filter_change(_=None):
+            self.cfg.setdefault("ui", {})["tracker_filter"] = self._tracker_filter_statut_var.get()
             save_config(self.cfg)
             self._refresh_tracker_list(scroll_frame)
 
+        # Build options statut with counts
+        stat_opts = ["Tous"]
+        for s in ["À envoyer", "Envoyée", "Relancée", "Entretien", "Refusée", "Acceptée"]:
+            n = stats.get(s, 0)
+            stat_opts.append(f"{s}" + (f" ({n})" if n else ""))
+
         ctk.CTkOptionMenu(
-            action_row,
-            variable=self.tracker_filter_var,
-            values=["Tous", "À envoyer", "Envoyée", "Relancée",
-                    "Entretien", "Refusée", "Acceptée"],
-            width=140, height=32,
-            command=on_filter_change
+            filters_row, variable=self._tracker_filter_statut_var,
+            values=stat_opts, width=170, height=36,
+            command=_on_filter_change,
+            fg_color=THEME.bg_panel_alt, button_color=THEME.bg_panel_alt,
+            button_hover_color=THEME.bg_hover, text_color=THEME.text_primary,
+            dropdown_fg_color=THEME.bg_panel_alt
+        ).pack(side="left", padx=(0, 8))
+
+        # Build options lieu (distinct values)
+        lieux = sorted({c.get("lieu", "").strip() for c in candidatures
+                        if c.get("lieu")} | {"Tous lieux"})
+        ctk.CTkOptionMenu(
+            filters_row, variable=self._tracker_filter_lieu_var,
+            values=lieux if len(lieux) > 1 else ["Tous lieux"],
+            width=170, height=36,
+            command=_on_filter_change,
+            fg_color=THEME.bg_panel_alt, button_color=THEME.bg_panel_alt,
+            button_hover_color=THEME.bg_hover, text_color=THEME.text_primary,
+            dropdown_fg_color=THEME.bg_panel_alt
         ).pack(side="left")
 
-        ctk.CTkButton(
-            action_row, text="Exporter CSV",
-            command=self._export_csv,
-            height=32, width=130,
-            fg_color=THEME.bg_panel_alt, hover_color=THEME.bg_hover,
-            text_color=THEME.text_primary
-        ).pack(side="right")
+        # Recherche : re-render à chaque keystroke (debounce via after)
+        self._tracker_search_after = None
+        def _on_search_change(*_args):
+            if self._tracker_search_after:
+                self.after_cancel(self._tracker_search_after)
+            self._tracker_search_after = self.after(
+                250, lambda: self._refresh_tracker_list(scroll_frame))
+        self._tracker_search_var.trace_add("write", _on_search_change)
 
-        # Bouton "tout envoyer" les 'À envoyer'
-        ctk.CTkButton(
-            action_row, text="Tout envoyer",
-            command=lambda: self._send_all_pending(scroll_frame),
-            height=32, width=140,
-            fg_color=THEME.accent, hover_color=THEME.accent_hover
-        ).pack(side="right", padx=(5, 5))
-
-        # ── Barre multi-sélection (toujours visible) ──────────
-        self._tracker_selection = {}     # real_idx → BooleanVar
-        self._tracker_page = 0           # pagination interne
-        select_row = ctk.CTkFrame(self.main, fg_color=THEME.bg_panel_alt, corner_radius=8)
-        select_row.pack(fill="x", pady=(0, 8))
+        # ── Bulk action bar ────────────────────────────────────
+        self._tracker_selection = {}
+        self._tracker_page = 0
+        action_row = ctk.CTkFrame(self.main, fg_color=THEME.bg_panel_alt, corner_radius=8)
+        action_row.pack(fill="x", pady=(0, 8))
 
         self._tracker_select_all_var = ctk.BooleanVar(value=False)
         ctk.CTkCheckBox(
-            select_row, text="Tout sélectionner",
+            action_row, text="Tout sélectionner",
             variable=self._tracker_select_all_var,
             command=lambda: self._tracker_toggle_all(scroll_frame),
             font=ctk.CTkFont(size=12)
         ).pack(side="left", padx=12, pady=8)
 
         self._tracker_sel_count_label = ctk.CTkLabel(
-            select_row, text="0 sélectionnée(s)",
-            text_color="gray", font=ctk.CTkFont(size=11)
+            action_row, text="0 sélectionnée(s)",
+            text_color=THEME.text_muted, font=ctk.CTkFont(size=11)
         )
-        self._tracker_sel_count_label.pack(side="left", padx=(12, 0))
+        self._tracker_sel_count_label.pack(side="left", padx=(8, 0))
 
         ctk.CTkButton(
-            select_row, text="Supprimer la sélection",
+            action_row, text="Supprimer",
             image=theme.ctk_icon(theme.icon_trash, size=14, color="#FFFFFF"),
             compound="left",
             command=lambda: self._tracker_delete_selected(scroll_frame),
-            height=32, width=220, corner_radius=16,
+            height=30, width=130, corner_radius=15,
             fg_color=THEME.red_danger, hover_color=THEME.red_hover,
-            font=ctk.CTkFont(size=12, weight="bold")
-        ).pack(side="right", padx=10, pady=6)
+            font=ctk.CTkFont(size=11, weight="bold")
+        ).pack(side="right", padx=(4, 10), pady=6)
 
+        ctk.CTkButton(
+            action_row, text="Préparer dossiers",
+            image=theme.ctk_icon(theme.icon_folder, size=14, color="#FFFFFF"),
+            compound="left",
+            command=lambda: self._prepare_application_folder_bulk(scroll_frame),
+            height=30, width=160, corner_radius=15,
+            fg_color=THEME.bg_panel, hover_color=THEME.bg_hover,
+            text_color=THEME.text_primary,
+            font=ctk.CTkFont(size=11, weight="bold")
+        ).pack(side="right", padx=4, pady=6)
+
+        ctk.CTkButton(
+            action_row, text="Exporter CSV",
+            image=theme.ctk_icon(theme.icon_download, size=14, color="#FFFFFF"),
+            compound="left",
+            command=self._export_csv,
+            height=30, width=130, corner_radius=15,
+            fg_color=THEME.bg_panel, hover_color=THEME.bg_hover,
+            text_color=THEME.text_primary,
+            font=ctk.CTkFont(size=11, weight="bold")
+        ).pack(side="right", padx=4, pady=6)
+
+        # ── En-tête tableau ─────────────────────────────────────
+        thead = ctk.CTkFrame(self.main, fg_color=THEME.bg_panel, corner_radius=6)
+        thead.pack(fill="x", pady=(0, 2))
+        thead.grid_columnconfigure(2, weight=1)
+        col_header_kw = dict(text_color=THEME.text_muted,
+                             font=ctk.CTkFont(size=10, weight="bold"))
+        ctk.CTkLabel(thead, text="", width=32, **col_header_kw)\
+            .grid(row=0, column=0, padx=10, pady=8)
+        ctk.CTkLabel(thead, text="STATUT", width=120, anchor="w", **col_header_kw)\
+            .grid(row=0, column=1, padx=4, pady=8, sticky="w")
+        ctk.CTkLabel(thead, text="ENTREPRISE / POSTE", anchor="w", **col_header_kw)\
+            .grid(row=0, column=2, padx=4, pady=8, sticky="w")
+        ctk.CTkLabel(thead, text="LIEU", width=140, anchor="w", **col_header_kw)\
+            .grid(row=0, column=3, padx=4, pady=8, sticky="w")
+        ctk.CTkLabel(thead, text="LIEN", width=80, **col_header_kw)\
+            .grid(row=0, column=4, padx=4, pady=8)
+
+        # ── Scrollable rows ─────────────────────────────────────
+        scroll_frame = ctk.CTkScrollableFrame(self.main, fg_color="transparent")
         scroll_frame.pack(fill="both", expand=True)
         self._refresh_tracker_list(scroll_frame)
 
@@ -1801,185 +1845,156 @@ class App(ctk.CTk):
             w.destroy()
 
         candidatures = self.cfg.get("candidatures", [])
-        filtre_val = getattr(self, "tracker_filter_var", None)
-        filtre_val = filtre_val.get() if filtre_val else "Tous"
-
         STATUTS = ["À envoyer", "Envoyée", "Relancée", "Entretien", "Refusée", "Acceptée"]
+        STATUT_COLORS = self.STATUT_COLORS
+
+        # Récupère les filtres
+        search_q = (getattr(self, "_tracker_search_var", None).get().strip().lower()
+                    if hasattr(self, "_tracker_search_var") else "")
+        statut_raw = (getattr(self, "_tracker_filter_statut_var", None).get()
+                      if hasattr(self, "_tracker_filter_statut_var") else "Tous")
+        # Retire le " (N)" éventuel à la fin
+        statut_f = statut_raw.split(" (")[0]
+        lieu_f = (getattr(self, "_tracker_filter_lieu_var", None).get()
+                  if hasattr(self, "_tracker_filter_lieu_var") else "Tous lieux")
+
+        # Filtrage
+        def _match(c):
+            if statut_f != "Tous" and c.get("statut", "À envoyer") != statut_f:
+                return False
+            if lieu_f and lieu_f != "Tous lieux" and c.get("lieu", "") != lieu_f:
+                return False
+            if search_q:
+                blob = " ".join([
+                    c.get("entreprise", ""), c.get("poste", ""),
+                    c.get("titre", ""), c.get("lieu", "")
+                ]).lower()
+                if search_q not in blob:
+                    return False
+            return True
 
         filtered = [
             (len(candidatures) - 1 - i, c)
             for i, c in enumerate(reversed(candidatures))
-            if filtre_val == "Tous" or c.get("statut") == filtre_val
+            if _match(c)
         ]
 
         if not filtered:
             ctk.CTkLabel(
-                container, text="Aucune candidature pour ce filtre.",
-                text_color="gray"
+                container,
+                text="Aucune candidature ne correspond aux filtres.",
+                text_color=THEME.text_muted
             ).pack(pady=40)
             self._tracker_update_selection_count()
             return
 
-        # ── Pagination : on découpe filtered par tranches ───────
+        # Pagination
         total = len(filtered)
         page_size = self.TRACKER_PAGE_SIZE
         max_page = max(0, (total - 1) // page_size)
-        # Clamp la page courante (au cas où on a supprimé des éléments)
         if not hasattr(self, "_tracker_page"):
             self._tracker_page = 0
         self._tracker_page = max(0, min(self._tracker_page, max_page))
         page = self._tracker_page
-
         start = page * page_size
         end = min(start + page_size, total)
         page_items = filtered[start:end]
 
-        # Garantit que self._tracker_selection contient une BooleanVar pour
-        # chaque candidature visible (sinon les cases sautent au reload).
         if not hasattr(self, "_tracker_selection"):
             self._tracker_selection = {}
-        # Nettoie les BooleanVar pour les candidatures supprimées
         valid_indices = {real_i for real_i, _ in filtered}
         for k in list(self._tracker_selection.keys()):
             if k not in valid_indices:
                 self._tracker_selection.pop(k, None)
 
-        STATUT_COLORS = self.STATUT_COLORS
-
+        # ── Render des table rows compactes ─────────────────────
         for real_i, c in page_items:
             statut = c.get("statut", "À envoyer")
             statut_color = STATUT_COLORS.get(statut, THEME.statut_a_envoyer)
 
-            # Wrapper coloré qui forme la bordure gauche (5px) par statut
-            wrapper = ctk.CTkFrame(
-                container, corner_radius=8,
-                fg_color=statut_color,
-            )
-            wrapper.pack(fill="x", pady=4, padx=3)
+            row = ctk.CTkFrame(container, fg_color=THEME.bg_panel_alt, corner_radius=6)
+            row.pack(fill="x", pady=2)
+            row.grid_columnconfigure(2, weight=1)
 
-            card = ctk.CTkFrame(wrapper, corner_radius=6)
-            card.pack(fill="both", expand=True, padx=(5, 0), pady=0)
-            card.grid_columnconfigure(1, weight=1)
-
-            # Checkbox de sélection multiple (col 0)
+            # Col 0 — checkbox
             sel_var = self._tracker_selection.get(real_i)
             if sel_var is None:
                 sel_var = ctk.BooleanVar(value=False)
                 self._tracker_selection[real_i] = sel_var
             ctk.CTkCheckBox(
-                card, text="", variable=sel_var, width=22,
+                row, text="", variable=sel_var, width=22,
+                checkbox_width=18, checkbox_height=18,
                 command=self._tracker_update_selection_count
-            ).grid(row=0, column=0, rowspan=2, padx=(10, 4), pady=8, sticky="w")
+            ).grid(row=0, column=0, padx=(10, 0), pady=10)
 
-            # Badge statut + libellé (col 1)
-            info_frame = ctk.CTkFrame(card, fg_color="transparent")
-            info_frame.grid(row=0, column=1, sticky="w", padx=4, pady=(8, 2))
-
-            statut_badge = ctk.CTkLabel(
-                info_frame,
-                text=f"  {statut}  ",
-                font=ctk.CTkFont(size=10, weight="bold"),
-                fg_color=statut_color, corner_radius=6,
-                text_color="white",
-            )
-            statut_badge.pack(side="left", padx=(0, 8))
-
-            ctk.CTkLabel(
-                info_frame,
-                text=f"{c.get('entreprise','—')} — {c.get('poste','—')}",
-                font=ctk.CTkFont(size=13, weight="bold")
-            ).pack(side="left")
-
-            if c.get("source"):
-                ctk.CTkLabel(
-                    info_frame, text=f"  [{c.get('source')}]",
-                    text_color="gray", font=ctk.CTkFont(size=11)
-                ).pack(side="left")
-
-            sep = "   ·   "
-            meta_parts = []
-            if c.get('lieu'):
-                meta_parts.append(c['lieu'])
-            if c.get('contrat'):
-                meta_parts.append(c['contrat'])
-            meta_parts.append(c.get('date', '—'))
-            ctk.CTkLabel(
-                card,
-                text=sep.join(meta_parts),
-                text_color=THEME.text_secondary, font=ctk.CTkFont(size=11)
-            ).grid(row=1, column=1, sticky="w", padx=4, pady=(0, 8))
-
-            actions = ctk.CTkFrame(card, fg_color="transparent")
-            actions.grid(row=0, column=2, rowspan=2, padx=12, pady=8, sticky="e")
-
-            statut_var = ctk.StringVar(value=c.get("statut", "À envoyer"))
+            # Col 1 — dropdown statut (compact, couleur du statut)
+            statut_var = ctk.StringVar(value=statut)
             statut_menu = ctk.CTkOptionMenu(
-                actions, variable=statut_var, values=STATUTS, width=130,
-                fg_color=statut_color,
-                button_color=statut_color,
+                row, variable=statut_var, values=STATUTS, width=130, height=28,
+                fg_color=statut_color, button_color=statut_color,
                 button_hover_color=self._statut_hover(statut_color),
-                text_color="white",
+                text_color="white", font=ctk.CTkFont(size=11, weight="bold")
             )
-            statut_menu.pack(pady=(0, 5))
+            statut_menu.grid(row=0, column=1, padx=4, pady=6)
 
-            def _on_change(val, idx=real_i, menu=statut_menu,
-                           wrap=wrapper, badge=statut_badge):
+            def _on_change(val, idx=real_i, menu=statut_menu, rw=row, container_=container):
                 self._update_statut(idx, val)
                 new_color = STATUT_COLORS.get(val, THEME.statut_a_envoyer)
-                # Mise à jour visuelle immédiate (pas besoin de rebuild la liste)
-                wrap.configure(fg_color=new_color)
-                badge.configure(text=f"  {val}  ", fg_color=new_color)
                 menu.configure(
-                    fg_color=new_color,
-                    button_color=new_color,
+                    fg_color=new_color, button_color=new_color,
                     button_hover_color=self._statut_hover(new_color),
                 )
-                # Si le filtre est actif et que le nouveau statut ne match plus,
-                # on rebuild pour faire disparaître la carte
-                cur_filter = getattr(self, "tracker_filter_var", None)
-                cur_filter = cur_filter.get() if cur_filter else "Tous"
+                cur_filter = self._tracker_filter_statut_var.get().split(" (")[0]
                 if cur_filter != "Tous" and cur_filter != val:
-                    self._refresh_tracker_list(container)
-
+                    self._refresh_tracker_list(container_)
             statut_menu.configure(command=_on_change)
 
-            btn_row = ctk.CTkFrame(actions, fg_color="transparent")
-            btn_row.pack()
+            # Col 2 — entreprise / poste (click ouvre workflow)
+            info = ctk.CTkFrame(row, fg_color="transparent", cursor="hand2")
+            info.grid(row=0, column=2, sticky="w", padx=4, pady=6)
+            ent = c.get('entreprise', '—')
+            poste = c.get('poste') or c.get('titre', '—')
+            ctk.CTkLabel(
+                info, text=ent,
+                font=ctk.CTkFont(size=13, weight="bold"),
+                anchor="w", cursor="hand2"
+            ).pack(side="left", padx=(0, 6))
+            ctk.CTkLabel(
+                info, text=f"— {poste}",
+                text_color=THEME.text_secondary, font=ctk.CTkFont(size=12),
+                anchor="w", cursor="hand2"
+            ).pack(side="left")
+            # Bind click sur tout l'info → workflow
+            for w in [info] + list(info.winfo_children()):
+                w.bind("<Button-1>", lambda _e, i=real_i:
+                       self._open_candidature_workflow(i))
 
+            # Col 3 — lieu
+            ctk.CTkLabel(
+                row, text=c.get('lieu', '—'),
+                text_color=THEME.text_muted, font=ctk.CTkFont(size=12),
+                anchor="w", width=140
+            ).grid(row=0, column=3, sticky="w", padx=4, pady=6)
+
+            # Col 4 — bouton "Voir" (lien direct)
             if c.get("url"):
                 ctk.CTkButton(
-                    btn_row, text="Lien", width=48, height=28,
-                    fg_color=THEME.bg_panel_alt, hover_color=THEME.border,
+                    row, text="Voir",
+                    image=theme.ctk_icon(theme.icon_external, size=12,
+                                         color=THEME.blue_link),
+                    compound="left",
+                    width=72, height=28,
+                    fg_color=THEME.bg_panel, hover_color=THEME.bg_hover,
                     text_color=THEME.blue_link,
-                    font=ctk.CTkFont(size=11),
+                    font=ctk.CTkFont(size=11, weight="bold"),
                     command=lambda url=c["url"]: self._open_url(url)
-                ).pack(side="left", padx=2)
-
-            ctk.CTkButton(
-                btn_row, text="Lettre", width=58, height=28,
-                fg_color=THEME.accent, hover_color=THEME.accent_hover,
-                text_color="white",
-                font=ctk.CTkFont(size=11),
-                command=lambda off=c, i=real_i: self._open_lettre_window(off, idx=i)
-            ).pack(side="left", padx=2)
-
-            ctk.CTkButton(
-                btn_row, text="Mail", width=48, height=28,
-                fg_color=THEME.bg_panel_alt, hover_color=THEME.border,
-                text_color=THEME.text_primary,
-                font=ctk.CTkFont(size=11),
-                command=lambda off=c, idx=real_i, cont=container:
-                    self._send_candidature(off, idx, cont)
-            ).pack(side="left", padx=2)
-
-            ctk.CTkButton(
-                btn_row, text="Suppr", width=52, height=28,
-                fg_color=THEME.bg_panel_alt, hover_color=THEME.red_danger,
-                text_color=THEME.text_secondary,
-                font=ctk.CTkFont(size=11),
-                command=lambda idx=real_i, cont=container:
-                    self._delete_candidature(idx, cont)
-            ).pack(side="left", padx=2)
+                ).grid(row=0, column=4, padx=(4, 10), pady=6)
+            else:
+                ctk.CTkLabel(
+                    row, text="—",
+                    text_color=THEME.text_muted, font=ctk.CTkFont(size=11),
+                    width=72
+                ).grid(row=0, column=4, padx=(4, 10), pady=6)
 
         # ── Footer pagination ────────────────────────────────────
         if max_page > 0:
@@ -2092,8 +2107,803 @@ class App(ctk.CTk):
             save_config(self.cfg)
             self._refresh_tracker_list(container)
 
+    # ════════════════════════════════════════════════════════════
+    # WORKFLOW FULLSCREEN — 3 étapes (Lettre → Mail → Envoi)
+    # ════════════════════════════════════════════════════════════
+    def _open_candidature_workflow(self, idx):
+        """Ouvre une fenêtre modale taille app : workflow lettre/mail/envoi."""
+        candidatures = self.cfg.get("candidatures", [])
+        if not (0 <= idx < len(candidatures)):
+            return
+        offre = candidatures[idx]
+
+        # Anti-doublon
+        existing = getattr(self, "_workflow_win", None)
+        if existing is not None:
+            try:
+                if existing.winfo_exists():
+                    existing.deiconify(); existing.lift(); existing.focus_force()
+                    return
+            except Exception:
+                pass
+
+        win = ctk.CTkToplevel(self)
+        self._workflow_win = win
+        win.title("Candidature")
+        # Taille = même que l'app, centrée
+        self.update_idletasks()
+        w = max(self.winfo_width(), 1000)
+        h = max(self.winfo_height(), 700)
+        x = self.winfo_x() + (self.winfo_width() - w) // 2
+        y = self.winfo_y() + (self.winfo_height() - h) // 2
+        win.geometry(f"{w}x{h}+{x}+{y}")
+        win.transient(self)
+        win.protocol("WM_DELETE_WINDOW",
+                     lambda: (setattr(self, "_workflow_win", None), win.destroy()))
+
+        # ── État interne ───────────────────────────────────────
+        try:
+            import tones as _tones
+            default_tone = _tones.default_tone()
+            tones_list = _tones.list_tones()
+        except Exception:
+            default_tone = "classique"
+            tones_list = [("classique", "Classique", "")]
+
+        wf_state = {
+            "idx": idx,
+            "step": 1,
+            "tone": default_tone,
+            "lettre": "",
+            "mail": "",
+            "dest_email": (offre.get("email") or "").strip(),
+        }
+
+        # ── Header ─────────────────────────────────────────────
+        header = ctk.CTkFrame(win, fg_color=THEME.bg_panel, height=70)
+        header.pack(fill="x", side="top")
+        header.pack_propagate(False)
+        h_inner = ctk.CTkFrame(header, fg_color="transparent")
+        h_inner.pack(side="left", padx=20, pady=12, fill="y")
+        ent = offre.get('entreprise', '—')
+        poste = offre.get('poste') or offre.get('titre', '—')
+        ctk.CTkLabel(
+            h_inner, text=f"{ent} — {poste}",
+            font=ctk.CTkFont(size=15, weight="bold")
+        ).pack(anchor="w")
+        ctk.CTkLabel(
+            h_inner,
+            text=f"{offre.get('lieu', '—')}  ·  {offre.get('source', '—')}"
+                 f"  ·  {offre.get('statut', 'À envoyer')}",
+            text_color=THEME.text_muted, font=ctk.CTkFont(size=11)
+        ).pack(anchor="w", pady=(2, 0))
+        # Close
+        ctk.CTkButton(
+            header, text="",
+            image=theme.ctk_icon(theme.icon_close, size=18, color=THEME.text_secondary),
+            width=36, height=36, corner_radius=18,
+            fg_color=THEME.bg_panel_alt, hover_color=THEME.red_danger,
+            command=lambda: (setattr(self, "_workflow_win", None), win.destroy())
+        ).pack(side="right", padx=20)
+
+        # ── Stepper ─────────────────────────────────────────────
+        stepper = ctk.CTkFrame(win, fg_color=THEME.bg_panel, height=60)
+        stepper.pack(fill="x")
+        stepper.pack_propagate(False)
+        step_labels = ["Lettre", "Mail", "Envoi"]
+        step_widgets = []
+        stepper_inner = ctk.CTkFrame(stepper, fg_color="transparent")
+        stepper_inner.pack(expand=True, pady=14)
+        for i, lbl in enumerate(step_labels, 1):
+            sframe = ctk.CTkFrame(stepper_inner, fg_color="transparent")
+            sframe.pack(side="left", padx=4)
+            num_lbl = ctk.CTkLabel(
+                sframe, text=str(i), width=28, height=28,
+                fg_color=THEME.bg_panel_alt, text_color=THEME.text_muted,
+                corner_radius=14,
+                font=ctk.CTkFont(size=12, weight="bold")
+            )
+            num_lbl.pack(side="left", padx=(0, 6))
+            txt_lbl = ctk.CTkLabel(
+                sframe, text=lbl, text_color=THEME.text_muted,
+                font=ctk.CTkFont(size=12, weight="bold")
+            )
+            txt_lbl.pack(side="left")
+            step_widgets.append((num_lbl, txt_lbl))
+            if i < len(step_labels):
+                ctk.CTkFrame(stepper_inner, fg_color=THEME.border,
+                             width=40, height=2).pack(side="left", padx=6)
+
+        def _update_stepper():
+            for i, (n, t) in enumerate(step_widgets, 1):
+                if i < wf_state["step"]:
+                    n.configure(fg_color=THEME.green_ok, text_color="white", text="✓")
+                    t.configure(text_color=THEME.text_primary)
+                elif i == wf_state["step"]:
+                    n.configure(fg_color=THEME.accent, text_color="white", text=str(i))
+                    t.configure(text_color=THEME.text_primary)
+                else:
+                    n.configure(fg_color=THEME.bg_panel_alt,
+                                text_color=THEME.text_muted, text=str(i))
+                    t.configure(text_color=THEME.text_muted)
+
+        # ── Body ───────────────────────────────────────────────
+        body = ctk.CTkFrame(win, fg_color=THEME.bg_panel_alt)
+        body.pack(fill="both", expand=True, side="top")
+
+        # ── Footer (navigation) ────────────────────────────────
+        footer = ctk.CTkFrame(win, fg_color=THEME.bg_panel, height=70)
+        footer.pack(fill="x", side="bottom")
+        footer.pack_propagate(False)
+
+        # On va re-render footer aussi à chaque étape
+        def _clear(parent):
+            for w in parent.winfo_children():
+                w.destroy()
+
+        def _render():
+            _clear(body); _clear(footer); _update_stepper()
+            if wf_state["step"] == 1:
+                self._wf_step1_lettre(body, footer, wf_state, tones_list, _render, win)
+            elif wf_state["step"] == 2:
+                self._wf_step2_mail(body, footer, wf_state, _render, win)
+            elif wf_state["step"] == 3:
+                self._wf_step3_envoi(body, footer, wf_state, _render, win)
+
+        _render()
+        bring_to_front(win)
+
+    def _wf_step1_lettre(self, body, footer, st, tones_list, render, win):
+        """Étape 1 : choix du ton + génération + édition de la lettre."""
+        wrap = ctk.CTkScrollableFrame(body, fg_color="transparent")
+        wrap.pack(fill="both", expand=True, padx=20, pady=20)
+
+        ctk.CTkLabel(
+            wrap, text="1. Lettre de motivation",
+            font=ctk.CTkFont(size=18, weight="bold")
+        ).pack(anchor="w", pady=(0, 4))
+        ctk.CTkLabel(
+            wrap, text="Choisis le ton, génère via IA, modifie si besoin.",
+            text_color=THEME.text_secondary, font=ctk.CTkFont(size=12)
+        ).pack(anchor="w", pady=(0, 14))
+
+        # Sélecteur de ton (4 cards)
+        ctk.CTkLabel(
+            wrap, text="TON DE LA LETTRE",
+            text_color=THEME.text_muted,
+            font=ctk.CTkFont(size=10, weight="bold")
+        ).pack(anchor="w", pady=(0, 8))
+
+        tones_row = ctk.CTkFrame(wrap, fg_color="transparent")
+        tones_row.pack(fill="x", pady=(0, 14))
+        TONE_ICONS = {
+            "classique": theme.icon_book,
+            "dynamique": theme.icon_bolt,
+            "creatif":   theme.icon_bulb,
+            "direct":    theme.icon_target,
+        }
+        tone_cards = {}
+        def _on_tone(key):
+            st["tone"] = key
+            for k, card in tone_cards.items():
+                if k == key:
+                    card.configure(border_color=THEME.accent,
+                                   fg_color=THEME.bg_panel)
+                else:
+                    card.configure(border_color=THEME.border,
+                                   fg_color=THEME.bg_panel)
+        for key, label, desc in tones_list:
+            card = ctk.CTkFrame(
+                tones_row, fg_color=THEME.bg_panel,
+                border_width=2, border_color=(THEME.accent if key == st["tone"] else THEME.border),
+                corner_radius=10
+            )
+            card.pack(side="left", padx=4, expand=True, fill="both")
+            inner = ctk.CTkFrame(card, fg_color="transparent")
+            inner.pack(padx=12, pady=10, fill="both")
+            icon_fn = TONE_ICONS.get(key, theme.icon_book)
+            ctk.CTkLabel(inner, text="",
+                         image=theme.ctk_icon(icon_fn, size=22,
+                                              color=THEME.text_primary)
+            ).pack(anchor="w", pady=(0, 4))
+            ctk.CTkLabel(inner, text=label,
+                         font=ctk.CTkFont(size=13, weight="bold")
+            ).pack(anchor="w")
+            ctk.CTkLabel(inner, text=desc,
+                         text_color=THEME.text_muted, font=ctk.CTkFont(size=10),
+                         wraplength=180, justify="left"
+            ).pack(anchor="w", pady=(2, 0))
+            # Click anywhere on card
+            for w in [card, inner] + list(inner.winfo_children()):
+                w.bind("<Button-1>", lambda _e, k=key: _on_tone(k))
+            tone_cards[key] = card
+
+        # Zone de texte de la lettre
+        lettre_box = ctk.CTkTextbox(wrap, height=280,
+                                    fg_color=THEME.bg_panel,
+                                    font=ctk.CTkFont(size=12),
+                                    wrap="word")
+        lettre_box.pack(fill="both", expand=True, pady=(8, 8))
+        if st.get("lettre"):
+            lettre_box.insert("1.0", st["lettre"])
+        self._isolate_textbox_scroll(lettre_box)
+
+        # Status label (génération)
+        status_lbl = ctk.CTkLabel(wrap, text="", text_color=THEME.text_muted,
+                                  font=ctk.CTkFont(size=11))
+        status_lbl.pack(anchor="w")
+
+        def _regen():
+            status_lbl.configure(text="Génération en cours…",
+                                 text_color=THEME.text_muted)
+            offre = self.cfg["candidatures"][st["idx"]]
+            def task():
+                try:
+                    from ai_engine import AIEngine
+                    engine = AIEngine(config=self.cfg)
+                    txt = engine.generate_cover_letter(
+                        offre, config=self.cfg, tone=st["tone"]
+                    )
+                except Exception as e:
+                    txt = f"[Erreur génération : {e}]"
+                def _apply():
+                    if not lettre_box.winfo_exists():
+                        return
+                    lettre_box.delete("1.0", "end")
+                    lettre_box.insert("1.0", txt)
+                    status_lbl.configure(text="✓ Généré",
+                                         text_color=THEME.green_ok)
+                self.after(0, _apply)
+            threading.Thread(target=task, daemon=True).start()
+
+        btns_row = ctk.CTkFrame(wrap, fg_color="transparent")
+        btns_row.pack(fill="x", pady=(6, 0))
+        ctk.CTkButton(
+            btns_row, text="Régénérer",
+            image=theme.ctk_icon(theme.icon_refresh, size=14,
+                                 color=THEME.text_primary),
+            compound="left",
+            command=_regen, height=32, width=130, corner_radius=16,
+            fg_color=THEME.bg_panel, hover_color=THEME.bg_hover,
+            text_color=THEME.text_primary,
+            font=ctk.CTkFont(size=12, weight="bold")
+        ).pack(side="left", padx=(0, 6))
+
+        # Footer
+        ctk.CTkButton(
+            footer, text="Annuler",
+            command=lambda: (setattr(self, "_workflow_win", None), win.destroy()),
+            height=36, corner_radius=18, width=110,
+            fg_color="transparent", hover_color=THEME.bg_hover,
+            border_width=1, border_color=THEME.border,
+            text_color=THEME.text_secondary
+        ).pack(side="left", padx=20, pady=16)
+
+        def _next():
+            st["lettre"] = lettre_box.get("1.0", "end").strip()
+            st["step"] = 2
+            render()
+        ctk.CTkButton(
+            footer, text="Suivant : Mail →",
+            command=_next, height=36, corner_radius=18, width=170,
+            fg_color=THEME.accent, hover_color=THEME.accent_hover,
+            font=ctk.CTkFont(size=13, weight="bold")
+        ).pack(side="right", padx=20, pady=16)
+
+    def _wf_step2_mail(self, body, footer, st, render, win):
+        """Étape 2 : mail d'accompagnement."""
+        wrap = ctk.CTkScrollableFrame(body, fg_color="transparent")
+        wrap.pack(fill="both", expand=True, padx=20, pady=20)
+        ctk.CTkLabel(
+            wrap, text="2. Mail d'accompagnement",
+            font=ctk.CTkFont(size=18, weight="bold")
+        ).pack(anchor="w", pady=(0, 4))
+        ctk.CTkLabel(
+            wrap, text="Court, professionnel, mentionne la lettre et le CV en PJ.",
+            text_color=THEME.text_secondary, font=ctk.CTkFont(size=12)
+        ).pack(anchor="w", pady=(0, 14))
+
+        mail_box = ctk.CTkTextbox(wrap, height=280, fg_color=THEME.bg_panel,
+                                  font=ctk.CTkFont(size=12), wrap="word")
+        mail_box.pack(fill="both", expand=True, pady=(0, 8))
+        if st.get("mail"):
+            mail_box.insert("1.0", st["mail"])
+        self._isolate_textbox_scroll(mail_box)
+
+        status_lbl = ctk.CTkLabel(wrap, text="", text_color=THEME.text_muted,
+                                  font=ctk.CTkFont(size=11))
+        status_lbl.pack(anchor="w")
+
+        def _regen():
+            status_lbl.configure(text="Génération en cours…")
+            offre = self.cfg["candidatures"][st["idx"]]
+            def task():
+                try:
+                    from ai_engine import AIEngine
+                    engine = AIEngine(config=self.cfg)
+                    txt = engine.generate_email(offre, config=self.cfg)
+                except Exception as e:
+                    txt = f"[Erreur génération : {e}]"
+                def _apply():
+                    if not mail_box.winfo_exists():
+                        return
+                    mail_box.delete("1.0", "end")
+                    mail_box.insert("1.0", txt)
+                    status_lbl.configure(text="✓ Généré",
+                                         text_color=THEME.green_ok)
+                self.after(0, _apply)
+            threading.Thread(target=task, daemon=True).start()
+
+        ctk.CTkButton(
+            wrap, text="Régénérer",
+            image=theme.ctk_icon(theme.icon_refresh, size=14,
+                                 color=THEME.text_primary),
+            compound="left",
+            command=_regen, height=32, width=130, corner_radius=16,
+            fg_color=THEME.bg_panel, hover_color=THEME.bg_hover,
+            text_color=THEME.text_primary,
+            font=ctk.CTkFont(size=12, weight="bold")
+        ).pack(anchor="w", pady=(6, 0))
+
+        # Footer
+        def _back():
+            st["mail"] = mail_box.get("1.0", "end").strip()
+            st["step"] = 1
+            render()
+        def _next():
+            st["mail"] = mail_box.get("1.0", "end").strip()
+            st["step"] = 3
+            render()
+        ctk.CTkButton(
+            footer, text="← Précédent", command=_back,
+            height=36, corner_radius=18, width=130,
+            fg_color="transparent", hover_color=THEME.bg_hover,
+            border_width=1, border_color=THEME.border,
+            text_color=THEME.text_secondary
+        ).pack(side="left", padx=20, pady=16)
+        ctk.CTkButton(
+            footer, text="Suivant : Envoi →", command=_next,
+            height=36, corner_radius=18, width=170,
+            fg_color=THEME.accent, hover_color=THEME.accent_hover,
+            font=ctk.CTkFont(size=13, weight="bold")
+        ).pack(side="right", padx=20, pady=16)
+
+    def _wf_step3_envoi(self, body, footer, st, render, win):
+        """Étape 3 : envoi (adaptatif selon présence email)."""
+        wrap = ctk.CTkScrollableFrame(body, fg_color="transparent")
+        wrap.pack(fill="both", expand=True, padx=20, pady=20)
+        ctk.CTkLabel(
+            wrap, text="3. Envoi de la candidature",
+            font=ctk.CTkFont(size=18, weight="bold")
+        ).pack(anchor="w", pady=(0, 4))
+
+        has_email = bool(st["dest_email"] and "@" in st["dest_email"])
+
+        if has_email:
+            ctk.CTkLabel(
+                wrap, text="L'email RH a été détecté dans l'offre — envoi en 1 clic.",
+                text_color=THEME.text_secondary, font=ctk.CTkFont(size=12)
+            ).pack(anchor="w", pady=(0, 18))
+
+            card = ctk.CTkFrame(
+                wrap, fg_color=THEME.bg_panel,
+                border_width=1, border_color=THEME.green_ok,
+                corner_radius=12
+            )
+            card.pack(fill="x", pady=8)
+            inner = ctk.CTkFrame(card, fg_color="transparent")
+            inner.pack(padx=20, pady=24)
+            ctk.CTkLabel(
+                inner, text="",
+                image=theme.ctk_icon(theme.icon_mail, size=32,
+                                     color=THEME.green_ok)
+            ).pack(pady=(0, 8))
+            ctk.CTkLabel(
+                inner, text="Email destinataire détecté",
+                text_color=THEME.green_ok,
+                font=ctk.CTkFont(size=14, weight="bold")
+            ).pack()
+            ctk.CTkLabel(
+                inner, text=st["dest_email"],
+                font=ctk.CTkFont(family="Helvetica", size=14, weight="bold"),
+                fg_color=THEME.bg_panel_alt, corner_radius=6
+            ).pack(pady=(8, 12), ipadx=16, ipady=6)
+            ctk.CTkLabel(
+                inner, text="Avec en pièces jointes : Lettre.pdf · CV.pdf",
+                text_color=THEME.text_muted, font=ctk.CTkFont(size=11)
+            ).pack()
+
+            def _send_gmail():
+                self._wf_send_via_gmail(st, win)
+            ctk.CTkButton(
+                inner, text="Envoyer maintenant via Gmail",
+                image=theme.ctk_icon(theme.icon_send, size=16,
+                                     color="#FFFFFF"),
+                compound="left",
+                command=_send_gmail,
+                height=42, corner_radius=21, width=320,
+                fg_color=THEME.accent, hover_color=THEME.accent_hover,
+                font=ctk.CTkFont(size=13, weight="bold")
+            ).pack(pady=(16, 0))
+
+            # Lien voir autres méthodes
+            def _show_alt():
+                # Force le mode "pas d'email" en réinitialisant dest_email
+                st["dest_email"] = ""
+                render()
+            ctk.CTkButton(
+                wrap, text="Voir les autres méthodes d'envoi",
+                command=_show_alt,
+                fg_color="transparent", hover_color=THEME.bg_hover,
+                text_color=THEME.text_muted,
+                font=ctk.CTkFont(size=11, underline=True)
+            ).pack(pady=(8, 0))
+
+        else:
+            ctk.CTkLabel(
+                wrap, text="Aucun email RH dans l'offre. Choisis une méthode :",
+                text_color=THEME.text_secondary, font=ctk.CTkFont(size=12)
+            ).pack(anchor="w", pady=(0, 14))
+
+            self._wf_render_alt_methods(wrap, st, win)
+
+        # Footer
+        def _back():
+            st["step"] = 2
+            render()
+        ctk.CTkButton(
+            footer, text="← Précédent", command=_back,
+            height=36, corner_radius=18, width=130,
+            fg_color="transparent", hover_color=THEME.bg_hover,
+            border_width=1, border_color=THEME.border,
+            text_color=THEME.text_secondary
+        ).pack(side="left", padx=20, pady=16)
+        ctk.CTkButton(
+            footer, text="Marquer comme envoyée",
+            image=theme.ctk_icon(theme.icon_check, size=14, color="#FFFFFF"),
+            compound="left",
+            command=lambda: self._wf_mark_sent(st, win),
+            height=36, corner_radius=18, width=220,
+            fg_color=THEME.green_ok, hover_color=THEME.green_hover,
+            font=ctk.CTkFont(size=12, weight="bold")
+        ).pack(side="right", padx=20, pady=16)
+
+    def _wf_render_alt_methods(self, wrap, st, win):
+        """Rend les 4 méthodes alternatives quand pas d'email."""
+        offre = self.cfg["candidatures"][st["idx"]]
+        # Bandeau warning
+        info = ctk.CTkFrame(wrap, fg_color=THEME.bg_panel,
+                            border_width=1, border_color=THEME.amber,
+                            corner_radius=8)
+        info.pack(fill="x", pady=(0, 14))
+        ir = ctk.CTkFrame(info, fg_color="transparent")
+        ir.pack(padx=14, pady=10, fill="x")
+        ctk.CTkLabel(ir, text="",
+                     image=theme.ctk_icon(theme.icon_warning, size=18,
+                                          color=THEME.amber)
+        ).pack(side="left", padx=(0, 10))
+        ctk.CTkLabel(
+            ir, text="LinkedIn et Indeed ne fournissent pas l'email RH dans 95% des offres.\n"
+                    "Voici 4 méthodes pour candidater quand même :",
+            text_color=THEME.text_secondary, font=ctk.CTkFont(size=11),
+            justify="left"
+        ).pack(side="left")
+
+        # Grid 2×2 des méthodes
+        grid = ctk.CTkFrame(wrap, fg_color="transparent")
+        grid.pack(fill="both", expand=True)
+        grid.grid_columnconfigure(0, weight=1)
+        grid.grid_columnconfigure(1, weight=1)
+
+        def _make_card(parent, icon_fn, num, title, desc, cta_text,
+                       on_click, recommended=False, row=0, col=0,
+                       extra_widget=None):
+            border = THEME.green_ok if recommended else THEME.border
+            bg = (THEME.bg_panel
+                  if not recommended else THEME.bg_panel)
+            card = ctk.CTkFrame(parent, fg_color=bg, border_width=1,
+                                border_color=border, corner_radius=10)
+            card.grid(row=row, column=col, padx=6, pady=6, sticky="nsew")
+            inner = ctk.CTkFrame(card, fg_color="transparent")
+            inner.pack(padx=14, pady=14, fill="both", expand=True)
+            head = ctk.CTkFrame(inner, fg_color="transparent")
+            head.pack(fill="x", pady=(0, 8))
+            mc = "#FFFFFF" if not recommended else THEME.green_ok
+            mfg = (THEME.bg_panel_alt if not recommended
+                   else "#1a2e1a")
+            ctk.CTkLabel(head, text="",
+                         image=theme.ctk_icon(icon_fn, size=18, color=mc),
+                         width=32, height=32, fg_color=mfg, corner_radius=8
+            ).pack(side="left", padx=(0, 10))
+            ctk.CTkLabel(head, text=f"{num}. {title}",
+                         font=ctk.CTkFont(size=13, weight="bold")
+            ).pack(side="left")
+            if recommended:
+                ctk.CTkLabel(head, text="RECOMMANDÉ",
+                             fg_color=THEME.green_ok, text_color="white",
+                             corner_radius=4,
+                             font=ctk.CTkFont(size=9, weight="bold")
+                ).pack(side="right", padx=(0, 4), pady=(4, 0), ipadx=6, ipady=2)
+            ctk.CTkLabel(inner, text=desc,
+                         text_color=THEME.text_secondary,
+                         font=ctk.CTkFont(size=11),
+                         wraplength=300, justify="left"
+            ).pack(anchor="w", pady=(0, 8))
+            if extra_widget:
+                extra_widget(inner)
+            else:
+                ctk.CTkButton(
+                    inner, text=cta_text, command=on_click,
+                    height=30, corner_radius=15,
+                    fg_color=(THEME.green_ok if recommended else THEME.accent),
+                    hover_color=(THEME.green_hover if recommended else THEME.accent_hover),
+                    font=ctk.CTkFont(size=11, weight="bold")
+                ).pack(anchor="w", pady=(2, 0))
+
+        # 1. Ouvrir l'offre
+        _make_card(grid, theme.icon_external, 1,
+                   "Ouvrir l'offre dans le navigateur",
+                   "Ouvre l'annonce dans Safari. Clique 'Postuler' sur le site → uploads les PDF + colle le mail dans le formulaire intégré.",
+                   "Ouvrir l'offre",
+                   lambda: self._wf_open_offer(offre),
+                   recommended=True, row=0, col=0)
+
+        # 2. Préparer dossier
+        _make_card(grid, theme.icon_folder, 2,
+                   "Préparer un dossier",
+                   "Génère Candidature_<Entreprise>.zip avec Lettre.pdf, CV.pdf et mail.txt. Tu drag-drop dans n'importe quel formulaire web.",
+                   "Générer le dossier",
+                   lambda: self._wf_prepare_folder(st, win),
+                   row=0, col=1)
+
+        # 3. Copier presse-papier
+        def _copy_extra(inner_parent):
+            row = ctk.CTkFrame(inner_parent, fg_color="transparent")
+            row.pack(fill="x", pady=(2, 0))
+            ctk.CTkButton(
+                row, text="Copier lettre",
+                command=lambda: self._wf_copy_clip(st["lettre"], "Lettre"),
+                height=28, width=110, corner_radius=14,
+                fg_color=THEME.accent, hover_color=THEME.accent_hover,
+                font=ctk.CTkFont(size=10, weight="bold")
+            ).pack(side="left", padx=(0, 4))
+            ctk.CTkButton(
+                row, text="Copier mail",
+                command=lambda: self._wf_copy_clip(st["mail"], "Mail"),
+                height=28, width=110, corner_radius=14,
+                fg_color=THEME.accent, hover_color=THEME.accent_hover,
+                font=ctk.CTkFont(size=10, weight="bold")
+            ).pack(side="left")
+        _make_card(grid, theme.icon_copy, 3,
+                   "Copier dans le presse-papier",
+                   "Choisis ce que tu copies. Idéal pour coller dans LinkedIn DM, WhatsApp pro, formulaire texte web.",
+                   "", None,
+                   row=1, col=0, extra_widget=_copy_extra)
+
+        # 4. Envoyer mail direct
+        def _send_direct_extra(inner_parent):
+            row = ctk.CTkFrame(inner_parent, fg_color="transparent")
+            row.pack(fill="x", pady=(2, 0))
+            email_var = ctk.StringVar()
+            ent = ctk.CTkEntry(row, textvariable=email_var,
+                               placeholder_text="rh@entreprise.com",
+                               height=30, fg_color=THEME.bg_panel_alt)
+            ent.pack(side="left", fill="x", expand=True, padx=(0, 6))
+            ctk.CTkButton(
+                row, text="Envoyer",
+                image=theme.ctk_icon(theme.icon_send, size=12,
+                                     color="#FFFFFF"),
+                compound="left",
+                command=lambda: self._wf_send_to_address(
+                    st, email_var.get().strip(), win),
+                height=30, width=100, corner_radius=15,
+                fg_color=THEME.accent, hover_color=THEME.accent_hover,
+                font=ctk.CTkFont(size=11, weight="bold")
+            ).pack(side="left")
+        _make_card(grid, theme.icon_send, 4,
+                   "Envoyer un mail direct",
+                   "Tu connais l'email RH ? Saisis-le et envoie via Gmail SMTP avec les PJ.",
+                   "", None,
+                   row=1, col=1, extra_widget=_send_direct_extra)
+
+    # ─── 4 méthodes d'envoi (helpers) ──────────────────────────
+    def _wf_generate_pdfs(self, st):
+        """Génère lettre.pdf (à partir du texte de l'étape 1) + retourne
+        liste de pièces jointes (lettre, CV si existant)."""
+        from pdf_generator import generate_lettre_pdf
+        offre = self.cfg["candidatures"][st["idx"]]
+        profil = self.cfg.get("profil", {})
+        # Génère la lettre PDF (si non vide)
+        attachments = []
+        if st.get("lettre"):
+            try:
+                pdf_path = generate_lettre_pdf(
+                    st["lettre"], profil, offre
+                )
+                attachments.append(pdf_path)
+            except Exception as e:
+                print(f"[workflow] PDF lettre échec : {e}")
+        # CV (si présent)
+        cv_path = self.cfg.get("documents", {}).get("cv_path", "")
+        if cv_path and os.path.exists(cv_path):
+            attachments.append(cv_path)
+        return attachments
+
+    def _wf_send_via_gmail(self, st, win):
+        """Envoie via Gmail SMTP à l'email détecté de l'offre."""
+        self._wf_send_to_address(st, st["dest_email"], win)
+
+    def _wf_send_to_address(self, st, address, win):
+        """Envoie le mail à `address` via Gmail SMTP avec PJ."""
+        address = (address or "").strip()
+        if not address or "@" not in address:
+            messagebox.showwarning("Email invalide",
+                                   "Saisis une adresse email valide.")
+            return
+        offre = self.cfg["candidatures"][st["idx"]]
+        body = st.get("mail", "").strip()
+        if not body:
+            messagebox.showwarning("Mail vide",
+                                   "Génère ou écris le mail (étape 2) avant l'envoi.")
+            return
+        # Subject : on essaie d'extraire la première ligne du mail si elle
+        # commence par "Objet :" sinon on synthétise
+        subject = ""
+        for ln in body.splitlines():
+            if ln.lower().startswith("objet"):
+                subject = ln.split(":", 1)[-1].strip()
+                break
+        if not subject:
+            poste = offre.get("poste") or offre.get("titre", "?")
+            subject = f"Candidature — {poste}"
+
+        attachments = self._wf_generate_pdfs(st)
+
+        def task():
+            try:
+                from mail_sender import MailSender
+                sender = MailSender(config=self.cfg)
+                sender.send(address, subject, body, attachments=attachments)
+                self.after(0, lambda: self._wf_mark_sent(st, win,
+                                                         silent=False,
+                                                         success_msg=f"Envoyé à {address}"))
+            except Exception as e:
+                err = str(e)
+                self.after(0, lambda: messagebox.showerror(
+                    "Échec envoi", f"Impossible d'envoyer le mail :\n{err}"))
+        threading.Thread(target=task, daemon=True).start()
+        messagebox.showinfo("Envoi en cours",
+                            f"Envoi à {address} en cours…")
+
+    def _wf_open_offer(self, offre):
+        url = offre.get("url", "").strip()
+        if not url:
+            messagebox.showinfo("Pas de lien",
+                                "Aucune URL d'offre disponible pour cette candidature.")
+            return
+        self._open_url(url)
+
+    def _wf_prepare_folder(self, st, win):
+        """Génère un ZIP avec Lettre.pdf + CV.pdf + mail.txt, ouvre le Finder."""
+        offre = self.cfg["candidatures"][st["idx"]]
+        try:
+            zip_path = self._prepare_application_folder(
+                [st["idx"]], lettre_override={st["idx"]: st.get("lettre", "")},
+                mail_override={st["idx"]: st.get("mail", "")}
+            )
+            # Ouvre le Finder à l'emplacement
+            import subprocess
+            subprocess.run(["open", "-R", str(zip_path)])
+            messagebox.showinfo("Dossier prêt",
+                                f"Dossier créé :\n{zip_path}\n\n"
+                                f"Glisse-le dans le formulaire de candidature.")
+        except Exception as e:
+            messagebox.showerror("Échec",
+                                 f"Création du dossier impossible :\n{e}")
+
+    def _wf_copy_clip(self, content, label):
+        if not content:
+            messagebox.showwarning("Rien à copier",
+                                   f"Le contenu de '{label}' est vide.")
+            return
+        try:
+            self.clipboard_clear()
+            self.clipboard_append(content)
+            self.update()
+            messagebox.showinfo("Copié",
+                                f"{label} copié dans le presse-papier.")
+        except Exception as e:
+            messagebox.showerror("Échec", str(e))
+
+    def _wf_mark_sent(self, st, win, silent=False, success_msg=None):
+        """Marque comme envoyée et ferme le workflow."""
+        try:
+            self.cfg["candidatures"][st["idx"]]["statut"] = "Envoyée"
+            save_config(self.cfg)
+        except Exception:
+            pass
+        if not silent and success_msg:
+            messagebox.showinfo("Candidature envoyée", success_msg)
+        setattr(self, "_workflow_win", None)
+        try:
+            win.destroy()
+        except Exception:
+            pass
+        # Re-render la liste si on est sur la page candidatures
+        try:
+            if self.cfg.get("ui", {}).get("last_tab") == "tracker":
+                self.show_tracker()
+        except Exception:
+            pass
+
+    def _prepare_application_folder(self, indices, lettre_override=None,
+                                     mail_override=None):
+        """Génère 1 ZIP par candidature dans ~/Downloads/CandidatureBot/.
+        Retourne le chemin du dernier ZIP créé (pour ouvrir le Finder)."""
+        from pdf_generator import generate_lettre_pdf
+        from pathlib import Path
+        import zipfile, tempfile, re
+
+        out_dir = Path.home() / "Downloads" / "CandidatureBot"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        profil = self.cfg.get("profil", {})
+        cv_path = self.cfg.get("documents", {}).get("cv_path", "")
+        last_zip = None
+        for idx in indices:
+            if not (0 <= idx < len(self.cfg.get("candidatures", []))):
+                continue
+            c = self.cfg["candidatures"][idx]
+            ent = re.sub(r"[^\w\-]+", "_", (c.get("entreprise") or "Entreprise"))[:30]
+            zip_path = out_dir / f"Candidature_{ent}.zip"
+
+            # Génère lettre.pdf dans temp
+            tmp = Path(tempfile.mkdtemp(prefix="cbot_zip_"))
+            try:
+                lettre_text = (lettre_override or {}).get(idx, "")
+                if lettre_text:
+                    try:
+                        pdf = generate_lettre_pdf(lettre_text, profil, c,
+                                                  dest_dir=str(tmp))
+                    except Exception:
+                        pdf = None
+                else:
+                    pdf = None
+                mail_text = (mail_override or {}).get(idx, "")
+
+                with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+                    if pdf and os.path.exists(pdf):
+                        zf.write(pdf, arcname=f"Lettre_{ent}.pdf")
+                    if cv_path and os.path.exists(cv_path):
+                        zf.write(cv_path, arcname=f"CV_{os.path.basename(cv_path)}")
+                    if mail_text:
+                        zf.writestr("mail.txt", mail_text)
+            finally:
+                import shutil as _sh
+                _sh.rmtree(tmp, ignore_errors=True)
+            last_zip = zip_path
+        return last_zip
+
+    def _prepare_application_folder_bulk(self, container):
+        """Bulk : prépare un ZIP par candidature cochée."""
+        sel = sorted([k for k, v in (getattr(self, "_tracker_selection", {}) or {}).items()
+                      if v.get()])
+        if not sel:
+            messagebox.showinfo("Information",
+                                "Aucune candidature sélectionnée.")
+            return
+        try:
+            last_zip = self._prepare_application_folder(sel)
+            if last_zip:
+                import subprocess
+                subprocess.run(["open", "-R", str(last_zip)])
+                messagebox.showinfo("Dossiers prêts",
+                                    f"{len(sel)} dossier(s) créé(s) dans :\n"
+                                    f"~/Downloads/CandidatureBot/")
+        except Exception as e:
+            messagebox.showerror("Échec", str(e))
+
     def _send_candidature(self, offre, idx, container):
-        """Popup preview → envoyer candidature par mail"""
+        """Popup preview → envoyer candidature par mail (legacy, gardé pour bouton 'Mail' éventuel)"""
         email_dest = (offre.get("email") or "").strip()
 
         win = ctk.CTkToplevel(self)

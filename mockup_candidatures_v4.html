@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Candidature Bot — refonte v4 (icons paint)</title>
+<style>
+  :root {
+    --bg: #1f1f23;
+    --bg-alt: #28282d;
+    --bg-hover: #33333a;
+    --border: #3a3a40;
+    --text: #e8e8e8;
+    --text-2: #b0b0b0;
+    --text-3: #808080;
+    --accent: #1f6aa5;
+    --accent-h: #2a7ec0;
+    --green: #4ec85a;
+    --blue: #5ba7d6;
+    --amber: #f5b041;
+    --purple: #9b59b6;
+    --red: #dc4646;
+    --grey: #7f8c8d;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", Helvetica, sans-serif;
+    font-size: 14px;
+  }
+  body { padding: 40px 24px 80px; max-width: 1280px; margin: 0 auto; }
+
+  /* ─── icônes SVG inline (paint style Lucide) ─── */
+  .icn {
+    display: inline-block;
+    vertical-align: middle;
+    width: 16px; height: 16px;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .icn.sm { width: 14px; height: 14px; }
+  .icn.lg { width: 20px; height: 20px; }
+  .icn.xl { width: 32px; height: 32px; }
+
+  h1 { font-weight: 700; letter-spacing: 1px; margin: 0 0 8px; font-size: 28px; }
+  h2.opt {
+    font-size: 22px; margin: 60px 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 12px;
+  }
+  h2.opt .tag {
+    font-size: 11px; font-weight: 700; letter-spacing: 1px;
+    background: var(--accent); color: white;
+    padding: 4px 10px; border-radius: 4px;
+  }
+  .intro { color: var(--text-2); margin-bottom: 12px; line-height: 1.5; }
+
+  .frame {
+    background: var(--bg-alt);
+    border-radius: 12px;
+    padding: 24px;
+    border: 1px solid var(--border);
+    margin-bottom: 30px;
+  }
+  .page-h { font-size: 20px; font-weight: 700; letter-spacing: 1px; margin-bottom: 8px; }
+  .page-sub { color: var(--text-3); font-size: 13px; margin-bottom: 18px; }
+
+  .stats {
+    display: flex; gap: 10px; align-items: center;
+    background: rgba(255,255,255,0.03); padding: 12px 16px;
+    border-radius: 8px; margin-bottom: 18px;
+    font-size: 13px;
+  }
+  .stat { padding: 4px 10px; border-radius: 6px; font-weight: 600; }
+  .stat.total { background: var(--bg-hover); color: var(--text); }
+  .stat.gris { background: var(--grey); color: white; }
+  .stat.purple { background: var(--purple); color: white; }
+
+  .action-bar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px;
+    background: var(--bg);
+    border-radius: 8px; margin-bottom: 12px;
+    font-size: 13px;
+  }
+  .action-bar .check { width: 18px; height: 18px; border: 2px solid var(--border); border-radius: 4px; cursor: pointer; }
+  .action-bar .spacer { flex: 1; }
+
+  .btn-primary {
+    padding: 8px 14px; border-radius: 999px;
+    background: var(--accent); color: white;
+    border: none; cursor: pointer; font-weight: 600; font-size: 12px;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn-primary:hover { background: var(--accent-h); }
+  .btn-primary.lg { padding: 14px 28px; font-size: 14px; gap: 8px; }
+  .btn-primary.lg .icn { width: 18px; height: 18px; }
+  .btn-primary.green { background: var(--green); }
+  .btn-primary.green:hover { background: #5ed46a; }
+
+  .btn-ghost {
+    padding: 8px 14px; border-radius: 999px;
+    background: transparent; color: var(--text-2);
+    border: 1px solid var(--border);
+    cursor: pointer; font-weight: 500; font-size: 12px;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn-ghost:hover { background: var(--bg-hover); color: var(--text); }
+  .btn-danger {
+    padding: 8px 14px; border-radius: 999px;
+    background: var(--red); color: white;
+    border: none; cursor: pointer; font-weight: 600; font-size: 12px;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+
+  .has-tip { position: relative; }
+  .tip {
+    visibility: hidden;
+    position: absolute; top: 120%; left: 50%; transform: translateX(-50%);
+    background: var(--bg); border: 1px solid var(--accent);
+    padding: 10px 14px; border-radius: 8px;
+    font-size: 11px; color: var(--text-2); width: 280px;
+    z-index: 100; opacity: 0;
+    transition: opacity 0.15s;
+    line-height: 1.5; pointer-events: none;
+  }
+  .has-tip:hover .tip { visibility: visible; opacity: 1; }
+  .tip b { color: var(--accent); }
+
+  /* ─── filtres ─── */
+  .filters { display: flex; gap: 10px; margin-bottom: 14px; align-items: center; }
+  .filters .search-wrap { flex: 1; position: relative; }
+  .filters .search-wrap .icn {
+    position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+    color: var(--text-3);
+  }
+  .filters input.search {
+    width: 100%;
+    background: var(--bg); border: 1px solid var(--border);
+    color: var(--text); padding: 9px 14px 9px 36px; border-radius: 8px;
+    font-size: 13px; outline: none;
+  }
+  .filters input.search:focus { border-color: var(--accent); }
+  .filters select {
+    background: var(--bg); border: 1px solid var(--border);
+    color: var(--text); padding: 9px 12px; border-radius: 8px;
+    font-size: 13px; outline: none;
+  }
+
+  /* ─── tableau ─── */
+  .tbl { background: var(--bg); border-radius: 8px; overflow: hidden; }
+  .table-row {
+    display: grid;
+    grid-template-columns: 32px 120px 1fr 140px 80px;
+    gap: 14px; align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.12s;
+    cursor: pointer;
+  }
+  .table-row:last-child { border-bottom: none; }
+  .table-row:hover { background: var(--bg-hover); }
+  .table-row.head {
+    background: rgba(255,255,255,0.02);
+    font-size: 11px; font-weight: 700;
+    color: var(--text-3); text-transform: uppercase; letter-spacing: 1.2px;
+    cursor: default;
+  }
+  .table-row.head:hover { background: rgba(255,255,255,0.02); }
+
+  .check2 { width: 16px; height: 16px; border: 2px solid var(--border); border-radius: 4px; cursor: pointer; position: relative; }
+  .check2.checked { background: var(--accent); border-color: var(--accent); }
+  .check2.checked::after {
+    content: ''; position: absolute;
+    top: 1px; left: 4px;
+    width: 5px; height: 9px;
+    border-right: 2px solid white; border-bottom: 2px solid white;
+    transform: rotate(45deg);
+  }
+
+  .status-dot {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 12px; font-weight: 600;
+  }
+  .status-dot .pill { width: 8px; height: 8px; border-radius: 50%; }
+  .table-row .entreprise { font-weight: 700; color: var(--text); font-size: 14px; }
+  .table-row .poste { color: var(--text-2); font-size: 13px; font-weight: 400; }
+  .table-row .grey { color: var(--text-3); font-size: 12px; }
+  .table-row .lien-btn {
+    padding: 6px 10px; border-radius: 6px;
+    background: var(--bg-alt); border: 1px solid var(--border);
+    color: var(--blue); font-size: 12px; font-weight: 600;
+    cursor: pointer; transition: all 0.12s;
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .table-row .lien-btn:hover { background: var(--bg-hover); border-color: var(--blue); }
+  .table-row .lien-btn.disabled { opacity: 0.4; cursor: not-allowed; }
+  .table-row .lien-btn .icn { width: 12px; height: 12px; }
+
+  .note {
+    margin-top: 10px; padding: 10px 14px;
+    background: rgba(31, 106, 165, 0.08);
+    border-left: 3px solid var(--accent);
+    font-size: 12px; color: var(--text-2);
+    border-radius: 4px;
+  }
+  .note ul { margin: 6px 0 0; padding-left: 22px; }
+  .note code { background: var(--bg); padding: 1px 6px; border-radius: 3px; font-size: 11px; }
+
+  /* ─── workflow ─── */
+  .workflow-frame {
+    background: var(--bg-alt);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    margin-top: 30px;
+  }
+  .workflow-header {
+    background: var(--bg);
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .workflow-header .title { font-weight: 700; font-size: 16px; }
+  .workflow-header .meta { color: var(--text-3); font-size: 12px; margin-top: 2px; }
+  .workflow-header .close-btn {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--bg-hover); color: var(--text-2);
+    border: none; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .workflow-header .close-btn:hover { background: var(--red); color: white; }
+
+  .stepper {
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px; gap: 8px;
+    background: var(--bg);
+  }
+  .step { display: flex; align-items: center; gap: 8px; color: var(--text-3); font-size: 13px; font-weight: 600; }
+  .step .num {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--bg-hover); color: var(--text-3);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700;
+    border: 2px solid var(--border);
+  }
+  .step.done .num { background: var(--green); color: white; border-color: var(--green); }
+  .step.active .num { background: var(--accent); color: white; border-color: var(--accent); }
+  .step.active, .step.done { color: var(--text); }
+  .step .conn { width: 40px; height: 2px; background: var(--border); }
+  .step.done + .step .conn { background: var(--green); }
+
+  .wf-body { padding: 24px; min-height: 420px; }
+  .wf-step-title { font-size: 18px; font-weight: 700; margin-bottom: 6px; color: var(--text); }
+  .wf-step-sub { font-size: 13px; color: var(--text-2); margin-bottom: 18px; }
+  .wf-textarea {
+    width: 100%; min-height: 180px;
+    background: var(--bg); border: 1px solid var(--border);
+    color: var(--text); padding: 14px;
+    border-radius: 8px; font-family: inherit; font-size: 13px;
+    resize: vertical; outline: none; line-height: 1.55;
+  }
+  .wf-textarea:focus { border-color: var(--accent); }
+  .wf-foot {
+    display: flex; justify-content: space-between; gap: 10px;
+    padding: 16px 24px;
+    background: var(--bg);
+    border-top: 1px solid var(--border);
+  }
+  .wf-foot > div { display: flex; gap: 10px; }
+
+  .section-label {
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;
+    color: var(--text-3); margin-bottom: 8px;
+  }
+
+  /* ─── tones ─── */
+  .tones-row { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+  .tone {
+    flex: 1; min-width: 180px;
+    padding: 14px;
+    background: var(--bg); border: 2px solid var(--border);
+    border-radius: 10px; cursor: pointer;
+    transition: all 0.15s;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .tone:hover { border-color: var(--accent); background: var(--bg-hover); }
+  .tone.selected { border-color: var(--accent); background: rgba(31, 106, 165, 0.15); }
+  .tone .ticon { color: var(--text); }
+  .tone.selected .ticon { color: var(--accent); }
+  .tone .ticon .icn { width: 22px; height: 22px; }
+  .tone .name { font-weight: 700; font-size: 13px; }
+  .tone .desc { font-size: 11px; color: var(--text-3); line-height: 1.4; }
+
+  /* ─── méthodes ─── */
+  .method-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+  }
+  .method {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .method:hover { border-color: var(--accent); background: var(--bg-hover); }
+  .method.recommended {
+    border-color: var(--green);
+    background: rgba(78, 200, 90, 0.04);
+  }
+  .method .head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .method .head .left { display: flex; align-items: center; gap: 10px; }
+  .method .head h4 { margin: 0; font-size: 14px; font-weight: 700; }
+  .method .head .micon {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: var(--bg-hover); color: var(--accent);
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .method.recommended .head .micon { background: rgba(78, 200, 90, 0.15); color: var(--green); }
+  .method .head .badge {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.5px;
+    padding: 3px 8px; border-radius: 4px;
+    background: var(--green); color: white;
+    text-transform: uppercase;
+  }
+  .method .desc { color: var(--text-2); font-size: 12px; line-height: 1.5; margin-bottom: 10px; }
+  .method .cta { color: var(--accent); font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
+
+  .file-list { list-style: none; padding: 0; margin: 0; }
+  .file-list li {
+    display: flex; align-items: center; gap: 8px;
+    padding: 4px 0;
+    color: var(--text-2); font-size: 12px;
+  }
+  .file-list li .ic { color: var(--accent); width: 14px; height: 14px; }
+
+  /* ─── recap email trouvé ─── */
+  .email-found-card {
+    background: rgba(78, 200, 90, 0.07);
+    border: 1px solid var(--green);
+    border-radius: 10px;
+    padding: 28px;
+    text-align: center;
+  }
+  .email-found-card .icon-big {
+    width: 64px; height: 64px; border-radius: 50%;
+    background: rgba(78, 200, 90, 0.15);
+    color: var(--green);
+    display: inline-flex; align-items: center; justify-content: center;
+    margin-bottom: 12px;
+  }
+  .email-found-card .icon-big .icn { width: 32px; height: 32px; stroke-width: 1.6; }
+  .email-found-card .h { font-size: 16px; font-weight: 700; margin-bottom: 4px; color: var(--green); }
+  .email-found-card .mail {
+    display: inline-block;
+    background: var(--bg); padding: 8px 16px;
+    border-radius: 6px; font-family: ui-monospace, monospace;
+    color: var(--text); font-size: 14px;
+    margin: 10px 0;
+  }
+  .alt-link { margin-top: 14px; font-size: 11px; color: var(--text-3); }
+  .alt-link a { color: var(--accent); text-decoration: none; cursor: pointer; }
+  .alt-link a:hover { text-decoration: underline; }
+
+  .info-block {
+    background: rgba(255, 200, 100, 0.06);
+    border-left: 3px solid var(--amber);
+    padding: 12px 14px;
+    border-radius: 4px;
+    font-size: 12px; color: var(--text-2);
+    margin-bottom: 18px;
+    display: flex; align-items: flex-start; gap: 10px;
+  }
+  .info-block .icn { color: var(--amber); flex-shrink: 0; margin-top: 1px; }
+  .info-block b { color: var(--amber); }
+
+  /* method 4 - email direct input */
+  .method-mail-direct-row {
+    margin-top: 10px; display: flex; gap: 8px;
+  }
+  .method-mail-direct-row input {
+    flex: 1; background: var(--bg-alt); border: 1px solid var(--border);
+    color: var(--text); padding: 7px 10px; border-radius: 6px;
+    font-size: 12px; outline: none;
+  }
+  .method-mail-direct-row input:focus { border-color: var(--accent); }
+</style>
+</head>
+<body>
+
+  <!-- ═════════════════════════════════════════════════ -->
+  <!-- DEFS SVG (réutilisables via <use>)                -->
+  <!-- ═════════════════════════════════════════════════ -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <!-- search / loupe -->
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
+      <!-- close X -->
+      <symbol id="i-close" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+      <!-- chevron link external -->
+      <symbol id="i-external" viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="m10 14 11-11"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
+      <!-- mail -->
+      <symbol id="i-mail" viewBox="0 0 24 24"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-10 5L2 7"/></symbol>
+      <!-- folder -->
+      <symbol id="i-folder" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></symbol>
+      <!-- copy / clipboard -->
+      <symbol id="i-copy" viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></symbol>
+      <!-- refresh circular -->
+      <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></symbol>
+      <!-- check -->
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+      <!-- file document -->
+      <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></symbol>
+      <!-- warning triangle -->
+      <symbol id="i-warning" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
+      <!-- send / airplane -->
+      <symbol id="i-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></symbol>
+      <!-- download -->
+      <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></symbol>
+      <!-- trash -->
+      <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></symbol>
+      <!-- import / download box -->
+      <symbol id="i-import" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m8 11 4 4 4-4"/><path d="M20 21H4a2 2 0 0 1-2-2v-3"/><path d="M22 16v3a2 2 0 0 1-2 2"/></symbol>
+      <!-- info -->
+      <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></symbol>
+      <!-- tones -->
+      <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/></symbol>
+      <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z"/></symbol>
+      <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></symbol>
+      <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></symbol>
+    </defs>
+  </svg>
+
+
+  <h1>Refonte v4 — Candidatures · Tableau + Workflow</h1>
+  <p class="intro">Tous les emojis remplacés par des icônes SVG line-art (style Lucide / Feather, stroke 1.8). Identiques entre HTML et Python (theme.py) pour rester cohérent.</p>
+
+  <!-- ============================ -->
+  <!-- ÉCRAN 1 : VUE TABLEAU         -->
+  <!-- ============================ -->
+  <h2 class="opt"><span class="tag">ÉCRAN 1</span> Vue tableau</h2>
+  <div class="frame">
+    <div class="page-h">MES CANDIDATURES</div>
+    <div class="page-sub">6 candidatures · 5 à envoyer · 1 entretien</div>
+
+    <div class="stats">
+      <div class="stat total">Total : 6</div>
+      <div class="stat gris">À envoyer : 5</div>
+      <div class="stat purple">Entretien : 1</div>
+    </div>
+
+    <div class="filters">
+      <div class="search-wrap">
+        <svg class="icn"><use href="#i-search"/></svg>
+        <input class="search" type="text" placeholder="Rechercher par entreprise ou poste...">
+      </div>
+      <select>
+        <option>Tous statuts</option>
+        <option>À envoyer (5)</option>
+        <option>Entretien (1)</option>
+      </select>
+      <select>
+        <option>Tous lieux</option>
+      </select>
+    </div>
+
+    <div class="action-bar">
+      <div class="check"></div>
+      <span>Tout sélectionner</span>
+      <span style="color: var(--text-3);">·  2 sélectionnée(s)</span>
+      <div class="spacer"></div>
+      <button class="btn-ghost"><svg class="icn"><use href="#i-download"/></svg>Exporter CSV</button>
+      <div class="has-tip">
+        <button class="btn-ghost"><svg class="icn"><use href="#i-folder"/></svg>Préparer dossiers</button>
+        <div class="tip">
+          <b>Préparer dossiers</b><br>
+          Génère 1 dossier zippé par candidature sélectionnée. Chaque dossier contient :
+          <br>• Lettre_Entreprise.pdf
+          <br>• CV.pdf
+          <br>• mail.txt
+          <br><br>
+          Idéal pour préparer 10 candidatures à la chaîne avant d'aller les soumettre sur chaque site.
+        </div>
+      </div>
+      <button class="btn-primary"><svg class="icn"><use href="#i-send"/></svg>Envoyer la sélection</button>
+      <button class="btn-danger"><svg class="icn"><use href="#i-trash"/></svg>Supprimer la sélection</button>
+    </div>
+
+    <div class="tbl">
+      <div class="table-row head">
+        <div></div>
+        <div>Statut ↓</div>
+        <div>Entreprise / Poste</div>
+        <div>Lieu</div>
+        <div style="text-align:center;">Lien</div>
+      </div>
+
+      <div class="table-row">
+        <div><div class="check2 checked"></div></div>
+        <div class="status-dot"><span class="pill" style="background: var(--purple);"></span>Entretien</div>
+        <div><span class="entreprise">Violin Phonix</span> <span class="poste">— Monteur vidéo</span></div>
+        <div class="grey">Ville de Paris</div>
+        <div><button class="lien-btn"><svg class="icn"><use href="#i-external"/></svg>Voir</button></div>
+      </div>
+
+      <div class="table-row">
+        <div><div class="check2 checked"></div></div>
+        <div class="status-dot"><span class="pill" style="background: var(--grey);"></span>À envoyer</div>
+        <div><span class="entreprise">Manucurist</span> <span class="poste">— Creative Video Producer · CDI</span></div>
+        <div class="grey">Paris</div>
+        <div><button class="lien-btn"><svg class="icn"><use href="#i-external"/></svg>Voir</button></div>
+      </div>
+
+      <div class="table-row">
+        <div><div class="check2"></div></div>
+        <div class="status-dot"><span class="pill" style="background: var(--grey);"></span>À envoyer</div>
+        <div><span class="entreprise">STAGE</span> <span class="poste">— Assistant Créateur de Contenus Pop Cul</span></div>
+        <div class="grey">Issy-les-Moulineaux</div>
+        <div><button class="lien-btn"><svg class="icn"><use href="#i-external"/></svg>Voir</button></div>
+      </div>
+
+      <div class="table-row">
+        <div><div class="check2"></div></div>
+        <div class="status-dot"><span class="pill" style="background: var(--grey);"></span>À envoyer</div>
+        <div><span class="entreprise">COJEAN</span> <span class="poste">— Équipier polyvalent F/H</span></div>
+        <div class="grey">Paris</div>
+        <div><button class="lien-btn"><svg class="icn"><use href="#i-external"/></svg>Voir</button></div>
+      </div>
+    </div>
+
+    <div class="note">
+      Click ligne (sauf checkbox/Voir) → workflow fullscreen · Click <code>Voir</code> → ouvre l'offre dans le navigateur · Hover <code>Préparer dossiers</code> → explication.
+    </div>
+  </div>
+
+  <!-- ============================ -->
+  <!-- WORKFLOW ÉTAPE 1              -->
+  <!-- ============================ -->
+  <h2 class="opt"><span class="tag" style="background: var(--purple);">WORKFLOW</span> Étape 1 — Lettre + ton</h2>
+  <div class="workflow-frame">
+    <div class="workflow-header">
+      <div>
+        <div class="title">Manucurist — Creative Video Producer · CDI</div>
+        <div class="meta">Paris · LinkedIn · À envoyer</div>
+      </div>
+      <button class="close-btn"><svg class="icn"><use href="#i-close"/></svg></button>
+    </div>
+
+    <div class="stepper">
+      <div class="step active"><div class="num">1</div><div>Lettre</div></div>
+      <div class="step"><div class="conn"></div></div>
+      <div class="step"><div class="num">2</div><div>Mail</div></div>
+      <div class="step"><div class="conn"></div></div>
+      <div class="step"><div class="num">3</div><div>Envoi</div></div>
+    </div>
+
+    <div class="wf-body">
+      <div class="wf-step-title">1. Lettre de motivation</div>
+      <div class="wf-step-sub">Choisis le ton, génère via IA, modifie si besoin. Export auto en PDF.</div>
+
+      <div class="section-label">Ton de la lettre</div>
+      <div class="tones-row">
+        <div class="tone selected">
+          <div class="ticon"><svg class="icn"><use href="#i-book"/></svg></div>
+          <div>
+            <div class="name">Classique</div>
+            <div class="desc">Formel, structuré. Pour grandes entreprises, banques, secteur public.</div>
+          </div>
+        </div>
+        <div class="tone">
+          <div class="ticon"><svg class="icn"><use href="#i-bolt"/></svg></div>
+          <div>
+            <div class="name">Dynamique</div>
+            <div class="desc">Énergique, enthousiaste. Pour startups, scale-ups, agences.</div>
+          </div>
+        </div>
+        <div class="tone">
+          <div class="ticon"><svg class="icn"><use href="#i-bulb"/></svg></div>
+          <div>
+            <div class="name">Créatif</div>
+            <div class="desc">Personnalité, anecdotes. Pour studios créa, médias, com.</div>
+          </div>
+        </div>
+        <div class="tone">
+          <div class="ticon"><svg class="icn"><use href="#i-target"/></svg></div>
+          <div>
+            <div class="name">Direct</div>
+            <div class="desc">No-bullshit, factuel, court. Pour tech, dev, métiers craft.</div>
+          </div>
+        </div>
+      </div>
+
+      <textarea class="wf-textarea">Madame, Monsieur,
+
+Passionné par l'audiovisuel et la création de contenu, c'est avec un vif intérêt que j'ai découvert votre offre pour le poste de Creative Video Producer au sein de Manucurist.
+
+Au cours de mes 3 années d'expérience, j'ai développé de solides compétences en montage, motion design et réalisation. Ces expertises me permettraient de contribuer efficacement à vos projets vidéo.
+
+Convaincu que mon profil correspond aux attentes de votre équipe, je serais ravi de vous présenter ma candidature lors d'un entretien.
+
+Dans l'attente de votre retour, je vous adresse mes sincères salutations.
+
+Cordialement,
+Lucas Egensperger</textarea>
+
+      <div style="display: flex; gap: 10px; margin-top: 14px;">
+        <button class="btn-ghost"><svg class="icn"><use href="#i-refresh"/></svg>Régénérer</button>
+        <button class="btn-ghost"><svg class="icn"><use href="#i-import"/></svg>Importer ma lettre type</button>
+      </div>
+    </div>
+
+    <div class="wf-foot">
+      <button class="btn-ghost">Annuler</button>
+      <div>
+        <button class="btn-ghost">Sauvegarder le brouillon</button>
+        <button class="btn-primary">Suivant : Mail →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================ -->
+  <!-- ÉTAPE 3a — EMAIL TROUVÉ        -->
+  <!-- ============================ -->
+  <h2 class="opt"><span class="tag" style="background: var(--green);">WORKFLOW</span> Étape 3a — Envoi <em>(email trouvé)</em></h2>
+  <div class="workflow-frame">
+    <div class="workflow-header">
+      <div>
+        <div class="title">Acme Corp — Monteur Senior</div>
+        <div class="meta">Paris · APEC · Email trouvé</div>
+      </div>
+      <button class="close-btn"><svg class="icn"><use href="#i-close"/></svg></button>
+    </div>
+
+    <div class="stepper">
+      <div class="step done"><div class="num"><svg class="icn" style="width:14px;height:14px;stroke-width:2.5"><use href="#i-check"/></svg></div><div>Lettre</div></div>
+      <div class="step"><div class="conn"></div></div>
+      <div class="step done"><div class="num"><svg class="icn" style="width:14px;height:14px;stroke-width:2.5"><use href="#i-check"/></svg></div><div>Mail</div></div>
+      <div class="step"><div class="conn"></div></div>
+      <div class="step active"><div class="num">3</div><div>Envoi</div></div>
+    </div>
+
+    <div class="wf-body">
+      <div class="wf-step-title">3. Envoi de la candidature</div>
+      <div class="wf-step-sub">L'email RH a été détecté dans l'offre — envoi en 1 clic.</div>
+
+      <div class="email-found-card">
+        <div class="icon-big"><svg class="icn"><use href="#i-mail"/></svg></div>
+        <div class="h">Email destinataire détecté</div>
+        <div class="mail">rh@acme-corp.com</div>
+        <div style="color: var(--text-2); font-size: 12px; margin-bottom: 18px;">
+          Avec en pièces jointes : <b>Lettre_Acme.pdf</b> · <b>CV.pdf</b>
+        </div>
+        <button class="btn-primary lg"><svg class="icn"><use href="#i-send"/></svg>Envoyer maintenant via Gmail</button>
+        <div class="alt-link">
+          <a>Modifier l'email destinataire</a>
+          &nbsp;·&nbsp;
+          <a>Voir les autres méthodes d'envoi</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="wf-foot">
+      <button class="btn-ghost">← Précédent</button>
+      <button class="btn-ghost">Marquer "À envoyer plus tard"</button>
+    </div>
+  </div>
+
+  <!-- ============================ -->
+  <!-- ÉTAPE 3b — EMAIL ABSENT        -->
+  <!-- ============================ -->
+  <h2 class="opt"><span class="tag" style="background: var(--amber);">WORKFLOW</span> Étape 3b — Envoi <em>(aucun email)</em></h2>
+  <div class="workflow-frame">
+    <div class="workflow-header">
+      <div>
+        <div class="title">Manucurist — Creative Video Producer · CDI</div>
+        <div class="meta">Paris · LinkedIn · Aucun email trouvé</div>
+      </div>
+      <button class="close-btn"><svg class="icn"><use href="#i-close"/></svg></button>
+    </div>
+
+    <div class="stepper">
+      <div class="step done"><div class="num"><svg class="icn" style="width:14px;height:14px;stroke-width:2.5"><use href="#i-check"/></svg></div><div>Lettre</div></div>
+      <div class="step"><div class="conn"></div></div>
+      <div class="step done"><div class="num"><svg class="icn" style="width:14px;height:14px;stroke-width:2.5"><use href="#i-check"/></svg></div><div>Mail</div></div>
+      <div class="step"><div class="conn"></div></div>
+      <div class="step active"><div class="num">3</div><div>Envoi</div></div>
+    </div>
+
+    <div class="wf-body">
+      <div class="wf-step-title">3. Comment envoyer cette candidature ?</div>
+      <div class="wf-step-sub">Aucun email RH dans l'offre. Choisis une méthode :</div>
+
+      <div class="info-block">
+        <svg class="icn"><use href="#i-warning"/></svg>
+        <div><b>Email non détecté</b> — LinkedIn (et Indeed) ne fournissent pas l'email RH dans 95% des offres. Voici 4 méthodes pour candidater quand même.</div>
+      </div>
+
+      <div class="method-grid">
+
+        <!-- 1 — Ouvrir l'offre -->
+        <div class="method recommended">
+          <div class="head">
+            <div class="left">
+              <span class="micon"><svg class="icn"><use href="#i-external"/></svg></span>
+              <h4>1. Ouvrir l'offre dans le navigateur</h4>
+            </div>
+            <span class="badge">Recommandé</span>
+          </div>
+          <div class="desc">
+            Ouvre l'annonce LinkedIn (ou autre) dans Safari. Tu cliques "Postuler" sur le site → tu uploads les PDF + colles le mail dans le formulaire intégré.
+          </div>
+          <div class="cta"><svg class="icn sm"><use href="#i-external"/></svg>Ouvrir l'offre</div>
+        </div>
+
+        <!-- 2 — Préparer dossier -->
+        <div class="method">
+          <div class="head">
+            <div class="left">
+              <span class="micon"><svg class="icn"><use href="#i-folder"/></svg></span>
+              <h4>2. Préparer un dossier</h4>
+            </div>
+          </div>
+          <div class="desc">
+            Génère <code>Candidature_Manucurist.zip</code> avec :
+            <ul class="file-list">
+              <li><svg class="icn sm ic"><use href="#i-file"/></svg>Lettre_Manucurist.pdf</li>
+              <li><svg class="icn sm ic"><use href="#i-file"/></svg>CV_Lucas.pdf</li>
+              <li><svg class="icn sm ic"><use href="#i-file"/></svg>mail.txt</li>
+            </ul>
+            Tu drag-drop dans n'importe quel formulaire web.
+          </div>
+          <div class="cta"><svg class="icn sm"><use href="#i-folder"/></svg>Générer et ouvrir le Finder</div>
+        </div>
+
+        <!-- 3 — Copier presse-papier -->
+        <div class="method">
+          <div class="head">
+            <div class="left">
+              <span class="micon"><svg class="icn"><use href="#i-copy"/></svg></span>
+              <h4>3. Copier dans le presse-papier</h4>
+            </div>
+          </div>
+          <div class="desc">
+            Choix : Lettre seule · Mail seul · Les deux concaténés.<br>
+            Tu colles dans LinkedIn DM, formulaire web texte, WhatsApp pro, etc.
+          </div>
+          <div class="cta"><svg class="icn sm"><use href="#i-copy"/></svg>Copier...</div>
+        </div>
+
+        <!-- 4 — Envoyer mail direct -->
+        <div class="method">
+          <div class="head">
+            <div class="left">
+              <span class="micon"><svg class="icn"><use href="#i-send"/></svg></span>
+              <h4>4. Envoyer un mail direct</h4>
+            </div>
+          </div>
+          <div class="desc">
+            Tu connais l'email RH ? Saisis-le ci-dessous, envoi via Gmail SMTP avec PJ (Lettre + CV).
+          </div>
+          <div class="method-mail-direct-row">
+            <input type="text" placeholder="rh@manucurist.com">
+            <button class="btn-primary"><svg class="icn"><use href="#i-send"/></svg>Envoyer</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="wf-foot">
+      <button class="btn-ghost">← Précédent</button>
+      <div>
+        <button class="btn-ghost">Marquer "À envoyer plus tard"</button>
+        <button class="btn-primary green"><svg class="icn"><use href="#i-check"/></svg>Marquer comme envoyée</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>Changements v4</b> :
+    <ul>
+      <li>Tous les emojis remplacés par des icônes SVG inline (Lucide-style, stroke 1.8, line-art).</li>
+      <li>Définies une seule fois dans un <code>&lt;defs&gt;</code> en haut, réutilisées via <code>&lt;use href="#i-mail"/&gt;</code>.</li>
+      <li>Style cohérent : couleur = currentColor → s'adapte au contexte (gris, bleu, blanc, rouge).</li>
+      <li>Mêmes icônes seront re-créées dans <code>theme.py</code> Python en haute résolution avec resize LANCZOS → cohérence parfaite HTML ↔ app.</li>
+    </ul>
+  </div>
+
+  <div style="position: sticky; bottom: 20px; display: flex; gap: 12px; justify-content: center; margin-top: 50px; padding: 16px; background: var(--bg-alt); border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+    <span style="align-self: center; color: var(--text-2); margin-right: 12px;"><b>Tu valides ce design v4 ?</b></span>
+    <button class="btn-primary lg" onclick="alert('OK je code en Python avec ces icônes paint');"><svg class="icn"><use href="#i-check"/></svg>Valider et implémenter</button>
+    <button class="btn-ghost" style="padding: 14px 22px;" onclick="alert('Précise les ajustements');">Ajuster avant</button>
+  </div>
+
+</body>
+</html>

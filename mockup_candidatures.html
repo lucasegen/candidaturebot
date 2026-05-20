@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Candidature Bot — Mockup refonte page Candidatures</title>
+<style>
+  :root {
+    --bg: #1f1f23;
+    --bg-alt: #28282d;
+    --bg-hover: #33333a;
+    --border: #3a3a40;
+    --text: #e8e8e8;
+    --text-2: #b0b0b0;
+    --text-3: #808080;
+    --accent: #1f6aa5;
+    --accent-h: #2a7ec0;
+    --green: #4ec85a;
+    --blue: #5ba7d6;
+    --amber: #f5b041;
+    --purple: #9b59b6;
+    --red: #dc4646;
+    --grey: #7f8c8d;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", Helvetica, sans-serif;
+    font-size: 14px;
+  }
+  body {
+    padding: 40px 24px 80px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  h1 { font-weight: 700; letter-spacing: 1px; margin: 0 0 8px; font-size: 28px; }
+  h2.opt {
+    font-size: 22px; margin: 60px 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 12px;
+  }
+  h2.opt .tag {
+    font-size: 11px; font-weight: 700; letter-spacing: 1px;
+    background: var(--accent); color: white;
+    padding: 4px 10px; border-radius: 4px;
+  }
+  .intro { color: var(--text-2); margin-bottom: 12px; }
+  .frame {
+    background: var(--bg-alt);
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid var(--border);
+  }
+
+  /* ---- HEADER PAGE ---- */
+  .page-h {
+    font-size: 20px; font-weight: 700; letter-spacing: 1px;
+    margin-bottom: 16px;
+  }
+  .stats {
+    display: flex; gap: 10px; align-items: center;
+    background: rgba(255,255,255,0.03); padding: 12px 16px;
+    border-radius: 8px; margin-bottom: 16px;
+    font-size: 13px;
+  }
+  .stat { padding: 4px 10px; border-radius: 6px; font-weight: 600; }
+  .stat.total { background: var(--bg-hover); color: var(--text); }
+  .stat.gris   { background: var(--grey);   color: white; }
+  .stat.bleu   { background: var(--blue);   color: white; }
+  .stat.amber  { background: var(--amber);  color: white; }
+  .stat.purple { background: var(--purple); color: white; }
+  .stat.green  { background: var(--green);  color: white; }
+  .stat.red    { background: var(--red);    color: white; }
+
+  /* ============================================================ */
+  /* OPTION A — TABS PAR STATUT + CARDS AÉRÉES                    */
+  /* ============================================================ */
+  .tabs-row {
+    display: flex; gap: 6px; flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .tab {
+    padding: 8px 14px; border-radius: 999px;
+    background: var(--bg-hover); color: var(--text-2);
+    font-weight: 600; font-size: 13px;
+    cursor: pointer; transition: all 0.15s;
+    user-select: none;
+  }
+  .tab:hover { background: var(--border); }
+  .tab.active {
+    background: var(--accent); color: white;
+  }
+  .tab .count {
+    font-size: 11px; opacity: 0.8;
+    margin-left: 4px;
+  }
+
+  .action-row {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 16px;
+    padding: 10px 14px;
+    background: var(--bg);
+    border-radius: 8px;
+    font-size: 13px;
+  }
+  .action-row .check { width: 18px; height: 18px; border: 2px solid var(--border); border-radius: 4px; }
+  .action-row .spacer { flex: 1; }
+  .btn-danger {
+    padding: 8px 14px; border-radius: 999px;
+    background: var(--red); color: white;
+    border: none; cursor: pointer; font-weight: 600; font-size: 12px;
+  }
+  .btn-ghost {
+    padding: 8px 14px; border-radius: 999px;
+    background: transparent; color: var(--text-2);
+    border: 1px solid var(--border);
+    cursor: pointer; font-weight: 500; font-size: 12px;
+  }
+  .btn-primary {
+    padding: 8px 14px; border-radius: 999px;
+    background: var(--accent); color: white;
+    border: none; cursor: pointer; font-weight: 600; font-size: 12px;
+  }
+  .btn-primary:hover { background: var(--accent-h); }
+
+  /* CARDS AÉRÉES (A) */
+  .card-a {
+    background: var(--bg);
+    border-radius: 10px;
+    margin-bottom: 10px;
+    border-left: 4px solid var(--grey);
+    padding: 16px 18px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 14px;
+    align-items: center;
+    transition: background 0.15s;
+    cursor: pointer;
+  }
+  .card-a:hover { background: var(--bg-hover); }
+  .card-a.s-gris   { border-left-color: var(--grey); }
+  .card-a.s-bleu   { border-left-color: var(--blue); }
+  .card-a.s-amber  { border-left-color: var(--amber); }
+  .card-a.s-purple { border-left-color: var(--purple); }
+  .card-a.s-green  { border-left-color: var(--green); }
+  .card-a.s-red    { border-left-color: var(--red); }
+
+  .card-a .check2 { width: 18px; height: 18px; border: 2px solid var(--border); border-radius: 4px; }
+  .card-a .info { min-width: 0; }
+  .card-a .info .title { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+  .card-a .info .sub { font-size: 13px; color: var(--text-2); margin-bottom: 4px; }
+  .card-a .info .meta { font-size: 12px; color: var(--text-3); }
+  .card-a .info .meta .dot { margin: 0 6px; opacity: 0.5; }
+  .card-a .info .source-tag {
+    display: inline-block;
+    padding: 1px 8px; border-radius: 4px;
+    background: var(--bg-hover); color: var(--text-2);
+    font-size: 10px; font-weight: 600;
+    margin-left: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .card-a .actions { display: flex; gap: 6px; align-items: center; }
+  .btn-mini {
+    padding: 7px 12px; border-radius: 6px;
+    background: var(--bg-alt); border: 1px solid var(--border);
+    color: var(--text); font-size: 12px; font-weight: 600;
+    cursor: pointer; transition: all 0.12s;
+  }
+  .btn-mini:hover { background: var(--bg-hover); border-color: var(--accent); }
+  .btn-mini.primary { background: var(--accent); border-color: var(--accent); color: white; }
+  .btn-mini.primary:hover { background: var(--accent-h); }
+  .btn-dot {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: transparent; border: 1px solid var(--border);
+    color: var(--text-2); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 700;
+  }
+  .btn-dot:hover { background: var(--bg-hover); color: var(--text); }
+
+  /* ============================================================ */
+  /* OPTION B — KANBAN                                             */
+  /* ============================================================ */
+  .kanban {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 10px;
+    margin-top: 14px;
+  }
+  .col {
+    background: var(--bg);
+    border-radius: 8px;
+    padding: 12px 8px;
+    min-height: 280px;
+  }
+  .col h3 {
+    margin: 0 0 12px;
+    font-size: 11px; font-weight: 700; letter-spacing: 1px;
+    color: var(--text-2);
+    text-align: center;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--border);
+  }
+  .col.gris h3 { border-color: var(--grey); }
+  .col.bleu h3 { border-color: var(--blue); }
+  .col.amber h3 { border-color: var(--amber); }
+  .col.purple h3 { border-color: var(--purple); }
+  .col.green h3 { border-color: var(--green); }
+  .col.red h3 { border-color: var(--red); }
+  .col h3 .num {
+    background: var(--bg-hover); color: var(--text-2);
+    padding: 1px 6px; border-radius: 4px;
+    margin-left: 6px; font-size: 10px;
+  }
+  .card-b {
+    background: var(--bg-alt);
+    border-radius: 6px;
+    padding: 10px;
+    margin-bottom: 8px;
+    border-left: 3px solid;
+    cursor: grab; user-select: none;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .card-b:hover { transform: translateY(-1px); box-shadow: 0 4px 8px rgba(0,0,0,0.3); }
+  .card-b .name { font-size: 12px; font-weight: 700; margin-bottom: 4px; color: var(--text); }
+  .card-b .poste { font-size: 11px; color: var(--text-2); margin-bottom: 6px; line-height: 1.3; }
+  .card-b .foot { font-size: 10px; color: var(--text-3); display: flex; justify-content: space-between; }
+
+  /* ============================================================ */
+  /* OPTION C — TABLEAU DENSE                                      */
+  /* ============================================================ */
+  .table-row {
+    display: grid;
+    grid-template-columns: 36px 130px 1fr 100px 100px 90px 60px;
+    gap: 10px; align-items: center;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.12s;
+    cursor: pointer;
+  }
+  .table-row:hover { background: var(--bg-hover); }
+  .table-row.head {
+    background: var(--bg);
+    font-size: 11px; font-weight: 700;
+    color: var(--text-3); text-transform: uppercase; letter-spacing: 1px;
+    border-bottom: 2px solid var(--border);
+    cursor: default;
+  }
+  .table-row.head:hover { background: var(--bg); }
+  .status-dot {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; font-weight: 600;
+  }
+  .status-dot .pill {
+    width: 8px; height: 8px; border-radius: 50%;
+  }
+  .table-row .entreprise { font-weight: 700; color: var(--text); font-size: 13px; }
+  .table-row .poste { color: var(--text-2); font-size: 12px; }
+  .table-row .grey { color: var(--text-3); font-size: 12px; }
+  .table-row .ellipsis { color: var(--text-2); text-align: center; font-size: 18px; font-weight: 700; cursor: pointer; }
+  .table-row .ellipsis:hover { color: var(--accent); }
+  .table-search {
+    display: flex; gap: 10px; margin-bottom: 12px; align-items: center;
+  }
+  .table-search input {
+    flex: 1; background: var(--bg); border: 1px solid var(--border);
+    color: var(--text); padding: 8px 14px; border-radius: 6px;
+    font-size: 13px; outline: none;
+  }
+  .table-search input:focus { border-color: var(--accent); }
+  .table-search select {
+    background: var(--bg); border: 1px solid var(--border);
+    color: var(--text); padding: 8px 12px; border-radius: 6px;
+    font-size: 13px; outline: none;
+  }
+
+  /* ==== Footer choix ==== */
+  .choice {
+    position: sticky; bottom: 20px;
+    display: flex; gap: 12px; justify-content: center;
+    margin-top: 50px;
+    padding: 16px;
+    background: var(--bg-alt);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  }
+  .choice button {
+    padding: 12px 22px; border-radius: 999px;
+    background: var(--accent); color: white; border: none;
+    font-size: 14px; font-weight: 700; cursor: pointer;
+    transition: background 0.15s;
+  }
+  .choice button:hover { background: var(--accent-h); }
+  .choice .text {
+    align-self: center; color: var(--text-2); margin-right: 12px;
+  }
+
+  .note {
+    margin-top: 10px; padding: 10px 14px;
+    background: rgba(31, 106, 165, 0.08);
+    border-left: 3px solid var(--accent);
+    font-size: 12px; color: var(--text-2);
+    border-radius: 4px;
+  }
+</style>
+</head>
+<body>
+
+  <h1>Candidature Bot — refonte page Candidatures</h1>
+  <p class="intro">3 options visuelles à comparer. Choisis-en une (ou un mix) et je l'implémente dans l'app.</p>
+
+  <!-- ============================ -->
+  <!-- OPTION A                      -->
+  <!-- ============================ -->
+  <h2 class="opt"><span class="tag">OPTION A</span> Tabs par statut + cards aérées</h2>
+  <p class="intro">Filtre visible direct (tabs cliquables), hiérarchie nette dans chaque card, 2 actions principales + menu pour le reste.</p>
+  <div class="frame">
+    <div class="page-h">MES CANDIDATURES</div>
+
+    <div class="tabs-row">
+      <div class="tab active">Tous <span class="count">6</span></div>
+      <div class="tab">À envoyer <span class="count">5</span></div>
+      <div class="tab">Envoyée <span class="count">0</span></div>
+      <div class="tab">Relancée <span class="count">0</span></div>
+      <div class="tab">Entretien <span class="count">1</span></div>
+      <div class="tab">Refusée <span class="count">0</span></div>
+      <div class="tab">Acceptée <span class="count">0</span></div>
+    </div>
+
+    <div class="action-row">
+      <div class="check"></div>
+      <div>Tout sélectionner</div>
+      <div style="color: var(--text-3);">·  0 cochée(s)</div>
+      <div class="spacer"></div>
+      <button class="btn-ghost">Exporter CSV</button>
+      <button class="btn-primary">Tout envoyer</button>
+      <button class="btn-danger">Supprimer la sélection</button>
+    </div>
+
+    <!-- card 1 — entretien -->
+    <div class="card-a s-purple">
+      <div class="check2"></div>
+      <div class="info">
+        <div class="title">Violin Phonix <span class="source-tag">LinkedIn</span></div>
+        <div class="sub">Monteur vidéo</div>
+        <div class="meta">Ville de Paris <span class="dot">·</span> 2026-05-14 <span class="dot">·</span> Entretien</div>
+      </div>
+      <div class="actions">
+        <button class="btn-mini primary">Lettre</button>
+        <button class="btn-mini">Mail</button>
+        <button class="btn-dot">⋯</button>
+      </div>
+    </div>
+
+    <!-- card 2 -->
+    <div class="card-a s-gris">
+      <div class="check2"></div>
+      <div class="info">
+        <div class="title">Manucurist <span class="source-tag">LinkedIn</span></div>
+        <div class="sub">Creative Video Producer — CDI</div>
+        <div class="meta">Paris <span class="dot">·</span> 2026-05-11 <span class="dot">·</span> À envoyer</div>
+      </div>
+      <div class="actions">
+        <button class="btn-mini primary">Lettre</button>
+        <button class="btn-mini">Mail</button>
+        <button class="btn-dot">⋯</button>
+      </div>
+    </div>
+
+    <!-- card 3 -->
+    <div class="card-a s-gris">
+      <div class="check2"></div>
+      <div class="info">
+        <div class="title">— STAGE <span class="source-tag">LinkedIn</span></div>
+        <div class="sub">Assistant Créateur de Contenus Pop Cul</div>
+        <div class="meta">Issy-les-Moulineaux <span class="dot">·</span> 2026-05-06 <span class="dot">·</span> À envoyer</div>
+      </div>
+      <div class="actions">
+        <button class="btn-mini primary">Lettre</button>
+        <button class="btn-mini">Mail</button>
+        <button class="btn-dot">⋯</button>
+      </div>
+    </div>
+
+    <!-- card 4 -->
+    <div class="card-a s-gris">
+      <div class="check2"></div>
+      <div class="info">
+        <div class="title">COJEAN <span class="source-tag">LinkedIn</span></div>
+        <div class="sub">Équipier polyvalent F/H</div>
+        <div class="meta">Paris <span class="dot">·</span> 2026-05-02 <span class="dot">·</span> À envoyer</div>
+      </div>
+      <div class="actions">
+        <button class="btn-mini primary">Lettre</button>
+        <button class="btn-mini">Mail</button>
+        <button class="btn-dot">⋯</button>
+      </div>
+    </div>
+
+    <div class="note">
+      <b>Pros</b> : tabs visibles, hiérarchie claire, désencombré, click sur card = ouvre fiche détail.<br>
+      <b>Cons</b> : tabs prennent de la place si 7+ statuts (mais on en a que 6).
+    </div>
+  </div>
+
+  <!-- ============================ -->
+  <!-- OPTION B — KANBAN             -->
+  <!-- ============================ -->
+  <h2 class="opt"><span class="tag" style="background: var(--purple);">OPTION B</span> Kanban</h2>
+  <p class="intro">Vue par colonnes statut. Drag & drop pour changer l'état. Compact mais devient illisible avec beaucoup de candidatures.</p>
+  <div class="frame">
+    <div class="page-h">MES CANDIDATURES — Pipeline</div>
+
+    <div class="kanban">
+      <div class="col gris">
+        <h3>À ENVOYER <span class="num">5</span></h3>
+
+        <div class="card-b" style="border-left-color: var(--grey);">
+          <div class="name">COJEAN</div>
+          <div class="poste">Équipier polyvalent F/H</div>
+          <div class="foot"><span>Paris</span><span>05-02</span></div>
+        </div>
+        <div class="card-b" style="border-left-color: var(--grey);">
+          <div class="name">Manucurist</div>
+          <div class="poste">Creative Video Producer</div>
+          <div class="foot"><span>Paris</span><span>05-11</span></div>
+        </div>
+        <div class="card-b" style="border-left-color: var(--grey);">
+          <div class="name">STAGE</div>
+          <div class="poste">Assistant créateur</div>
+          <div class="foot"><span>Issy</span><span>05-06</span></div>
+        </div>
+        <div class="card-b" style="border-left-color: var(--grey);">
+          <div class="name">Lucas</div>
+          <div class="poste">Petite copine</div>
+          <div class="foot"><span>Paris</span><span>05-02</span></div>
+        </div>
+      </div>
+
+      <div class="col bleu">
+        <h3>ENVOYÉE <span class="num">0</span></h3>
+      </div>
+
+      <div class="col amber">
+        <h3>RELANCÉE <span class="num">0</span></h3>
+      </div>
+
+      <div class="col purple">
+        <h3>ENTRETIEN <span class="num">1</span></h3>
+        <div class="card-b" style="border-left-color: var(--purple);">
+          <div class="name">Violin Phonix</div>
+          <div class="poste">Monteur vidéo</div>
+          <div class="foot"><span>Paris</span><span>05-14</span></div>
+        </div>
+      </div>
+
+      <div class="col red">
+        <h3>REFUSÉE <span class="num">0</span></h3>
+      </div>
+
+      <div class="col green">
+        <h3>ACCEPTÉE <span class="num">0</span></h3>
+      </div>
+    </div>
+
+    <div class="note">
+      <b>Pros</b> : pipeline visuel en 1 coup d'œil, drag & drop change le statut.<br>
+      <b>Cons</b> : drag & drop n'existe pas nativement dans CustomTkinter → faut hacker. Au-delà de 30 candidatures, colonnes illisibles.
+    </div>
+  </div>
+
+  <!-- ============================ -->
+  <!-- OPTION C — TABLEAU            -->
+  <!-- ============================ -->
+  <h2 class="opt"><span class="tag" style="background: var(--green);">OPTION C</span> Tableau dense (style Linear/Notion)</h2>
+  <p class="intro">Maximum d'infos sur 1 écran. Trier en cliquant les colonnes. Idéal au-delà de 30 candidatures.</p>
+  <div class="frame">
+    <div class="page-h">MES CANDIDATURES · 6 candidatures</div>
+
+    <div class="table-search">
+      <input type="text" placeholder="🔎 Recherche par entreprise, poste...">
+      <select>
+        <option>Tous les statuts</option>
+        <option>À envoyer (5)</option>
+        <option>Entretien (1)</option>
+      </select>
+      <select>
+        <option>Toutes sources</option>
+      </select>
+      <button class="btn-primary">+ Nouveau</button>
+    </div>
+
+    <div style="background: var(--bg); border-radius: 8px; overflow: hidden;">
+      <div class="table-row head">
+        <div></div>
+        <div>Statut ↓</div>
+        <div>Entreprise / Poste</div>
+        <div>Lieu</div>
+        <div>Date</div>
+        <div>Source</div>
+        <div></div>
+      </div>
+
+      <div class="table-row">
+        <div><div class="check2" style="width:16px;height:16px;"></div></div>
+        <div class="status-dot"><span class="pill" style="background: var(--purple);"></span>Entretien</div>
+        <div><span class="entreprise">Violin Phonix</span> <span class="poste">— Monteur vidéo</span></div>
+        <div class="grey">Paris</div>
+        <div class="grey">2026-05-14</div>
+        <div class="grey">LinkedIn</div>
+        <div class="ellipsis">⋯</div>
+      </div>
+
+      <div class="table-row">
+        <div><div class="check2" style="width:16px;height:16px;"></div></div>
+        <div class="status-dot"><span class="pill" style="background: var(--grey);"></span>À envoyer</div>
+        <div><span class="entreprise">Manucurist</span> <span class="poste">— Creative Video Producer</span></div>
+        <div class="grey">Paris</div>
+        <div class="grey">2026-05-11</div>
+        <div class="grey">LinkedIn</div>
+        <div class="ellipsis">⋯</div>
+      </div>
+
+      <div class="table-row">
+        <div><div class="check2" style="width:16px;height:16px;"></div></div>
+        <div class="status-dot"><span class="pill" style="background: var(--grey);"></span>À envoyer</div>
+        <div><span class="entreprise">STAGE</span> <span class="poste">— Assistant Créateur de Contenus</span></div>
+        <div class="grey">Issy-les-Moulineaux</div>
+        <div class="grey">2026-05-06</div>
+        <div class="grey">LinkedIn</div>
+        <div class="ellipsis">⋯</div>
+      </div>
+
+      <div class="table-row">
+        <div><div class="check2" style="width:16px;height:16px;"></div></div>
+        <div class="status-dot"><span class="pill" style="background: var(--grey);"></span>À envoyer</div>
+        <div><span class="entreprise">COJEAN</span> <span class="poste">— Équipier polyvalent F/H</span></div>
+        <div class="grey">Paris</div>
+        <div class="grey">2026-05-02</div>
+        <div class="grey">LinkedIn</div>
+        <div class="ellipsis">⋯</div>
+      </div>
+
+      <div class="table-row">
+        <div><div class="check2" style="width:16px;height:16px;"></div></div>
+        <div class="status-dot"><span class="pill" style="background: var(--grey);"></span>À envoyer</div>
+        <div><span class="entreprise">Lucas</span> <span class="poste">— Petite copine à temps plein</span></div>
+        <div class="grey">Paris</div>
+        <div class="grey">2026-05-02</div>
+        <div class="grey">Easter egg</div>
+        <div class="ellipsis">⋯</div>
+      </div>
+    </div>
+
+    <div class="note">
+      <b>Pros</b> : 15-20 candidatures visibles sans scroll, tri par colonne, scannable.<br>
+      <b>Cons</b> : moins "joli", + utilitaire. Click ligne = panel détail à droite (à coder en plus).
+    </div>
+  </div>
+
+  <!-- CHOIX -->
+  <div class="choice">
+    <span class="text"><b>Choisis l'option à implémenter :</b></span>
+    <button onclick="alert('OK on part sur Option A — tabs + cards aérées');">Option A</button>
+    <button onclick="alert('OK on part sur Option B — Kanban (avec drag & drop simulé)');">Option B</button>
+    <button onclick="alert('OK on part sur Option C — Tableau dense');">Option C</button>
+    <button onclick="alert('Mix : précise ce que tu veux');">Autre / Mix</button>
+  </div>
+
+</body>
+</html>

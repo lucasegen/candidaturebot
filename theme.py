@@ -464,6 +464,246 @@ def icon_question(size=20, color=Colors.text_secondary):
     return _finalize(img, size)
 
 
+# ─── Nouvelles icônes Lucide-style (v1.0.16) ────────────────────
+import math as _math
+
+
+def icon_external(size=20, color=Colors.blue_link):
+    """Flèche sortante (lien externe) — Lucide."""
+    img, d, hd = _hd_canvas(size)
+    c = _hex_to_rgba(color)
+    # Carré arrondi en bas-gauche (la "fenêtre")
+    box = [int(hd * 0.10), int(hd * 0.30),
+           int(hd * 0.65), int(hd * 0.85)]
+    d.rectangle(box, outline=c, width=_HD_STROKE)
+    # Coin haut-droit ouvert (path partiel)
+    # Carré recouvre une partie pour masquer l'ouverture
+    d.rectangle([int(hd * 0.55), int(hd * 0.20),
+                 int(hd * 0.92), int(hd * 0.45)],
+                fill=(0, 0, 0, 0))
+    # Flèche sortante
+    _line(d, (int(hd * 0.45), int(hd * 0.55)),
+             (int(hd * 0.85), int(hd * 0.15)), c, _HD_STROKE)
+    # Pointe de flèche en haut-droite
+    d.polygon([
+        (int(hd * 0.65), int(hd * 0.15)),
+        (int(hd * 0.85), int(hd * 0.15)),
+        (int(hd * 0.85), int(hd * 0.35)),
+    ], outline=c, width=_HD_STROKE)
+    return _finalize(img, size)
+
+
+def icon_folder(size=20, color=Colors.text_secondary):
+    """Dossier — Lucide."""
+    img, d, hd = _hd_canvas(size)
+    c = _hex_to_rgba(color)
+    # Onglet en haut
+    d.polygon([
+        (int(hd * 0.10), int(hd * 0.30)),
+        (int(hd * 0.42), int(hd * 0.30)),
+        (int(hd * 0.50), int(hd * 0.22)),
+        (int(hd * 0.85), int(hd * 0.22)),
+        (int(hd * 0.90), int(hd * 0.30)),
+        (int(hd * 0.90), int(hd * 0.78)),
+        (int(hd * 0.10), int(hd * 0.78)),
+    ], outline=c, width=_HD_STROKE)
+    return _finalize(img, size)
+
+
+def icon_copy(size=20, color=Colors.text_secondary):
+    """2 rectangles superposés (clipboard) — Lucide."""
+    img, d, hd = _hd_canvas(size)
+    c = _hex_to_rgba(color)
+    # Rectangle arrière (en haut-gauche)
+    d.rectangle([int(hd * 0.15), int(hd * 0.10),
+                 int(hd * 0.65), int(hd * 0.65)],
+                outline=c, width=_HD_STROKE)
+    # Rectangle avant (en bas-droite) — fond opaque pour masquer
+    box2 = [int(hd * 0.35), int(hd * 0.30),
+            int(hd * 0.88), int(hd * 0.88)]
+    d.rectangle(box2, fill=_hex_to_rgba(Colors.bg_panel_alt),
+                outline=c, width=_HD_STROKE)
+    return _finalize(img, size)
+
+
+def icon_file(size=20, color=Colors.text_secondary):
+    """Document avec lignes intérieures — Lucide."""
+    img, d, hd = _hd_canvas(size)
+    c = _hex_to_rgba(color)
+    # Contour avec coin haut-droit coupé
+    pts = [
+        (int(hd * 0.22), int(hd * 0.10)),
+        (int(hd * 0.62), int(hd * 0.10)),
+        (int(hd * 0.78), int(hd * 0.26)),
+        (int(hd * 0.78), int(hd * 0.88)),
+        (int(hd * 0.22), int(hd * 0.88)),
+    ]
+    d.polygon(pts, outline=c, width=_HD_STROKE)
+    # Coin replié (petit carré)
+    d.polygon([
+        (int(hd * 0.62), int(hd * 0.10)),
+        (int(hd * 0.62), int(hd * 0.26)),
+        (int(hd * 0.78), int(hd * 0.26)),
+    ], outline=c, width=_HD_STROKE)
+    # 3 lignes intérieures
+    for y_frac in (0.50, 0.62, 0.74):
+        y = int(hd * y_frac)
+        _line(d, (int(hd * 0.32), y), (int(hd * 0.68), y), c, _HD_STROKE)
+    return _finalize(img, size)
+
+
+def icon_warning(size=20, color=Colors.amber):
+    """Triangle alerte — Lucide."""
+    img, d, hd = _hd_canvas(size)
+    c = _hex_to_rgba(color)
+    # Triangle
+    d.polygon([
+        (int(hd * 0.50), int(hd * 0.12)),
+        (int(hd * 0.92), int(hd * 0.85)),
+        (int(hd * 0.08), int(hd * 0.85)),
+    ], outline=c, width=_HD_STROKE)
+    # ! vertical
+    _line(d, (int(hd * 0.50), int(hd * 0.40)),
+             (int(hd * 0.50), int(hd * 0.60)), c, _HD_STROKE)
+    # Point bas
+    _circle(d, int(hd * 0.50), int(hd * 0.74),
+            int(hd * 0.04), c, width=0, fill=c)
+    return _finalize(img, size)
+
+
+def icon_send(size=20, color=Colors.text_primary):
+    """Avion en papier — Lucide."""
+    img, d, hd = _hd_canvas(size)
+    c = _hex_to_rgba(color)
+    # Triangle pointé en haut-droite (le corps de l'avion)
+    d.polygon([
+        (int(hd * 0.90), int(hd * 0.10)),
+        (int(hd * 0.10), int(hd * 0.45)),
+        (int(hd * 0.45), int(hd * 0.55)),
+        (int(hd * 0.55), int(hd * 0.90)),
+    ], outline=c, width=_HD_STROKE)
+    # Ligne du pli intérieur
+    _line(d, (int(hd * 0.90), int(hd * 0.10)),
+             (int(hd * 0.45), int(hd * 0.55)), c, _HD_STROKE)
+    return _finalize(img, size)
+
+
+def icon_close(size=20, color=Colors.text_secondary):
+    """X de fermeture — équivalent à icon_cross mais ici sémantique close."""
+    return icon_cross(size=size, color=color)
+
+
+def icon_import(size=20, color=Colors.text_secondary):
+    """Flèche descendante dans une boîte (import) — Lucide."""
+    img, d, hd = _hd_canvas(size)
+    c = _hex_to_rgba(color)
+    # Flèche
+    cx = hd // 2
+    _line(d, (cx, int(hd * 0.15)), (cx, int(hd * 0.62)), c, _HD_STROKE)
+    a = int(hd * 0.10)
+    d.polygon([
+        (cx, int(hd * 0.72)),
+        (cx - a, int(hd * 0.52)),
+        (cx + a, int(hd * 0.52)),
+    ], fill=c)
+    # Boîte ouverte en bas (lignes L)
+    _line(d, (int(hd * 0.20), int(hd * 0.70)),
+             (int(hd * 0.20), int(hd * 0.85)), c, _HD_STROKE)
+    _line(d, (int(hd * 0.80), int(hd * 0.70)),
+             (int(hd * 0.80), int(hd * 0.85)), c, _HD_STROKE)
+    _line(d, (int(hd * 0.20), int(hd * 0.85)),
+             (int(hd * 0.80), int(hd * 0.85)), c, _HD_STROKE)
+    return _finalize(img, size)
+
+
+def icon_info(size=20, color=Colors.text_secondary):
+    """i dans un cercle — Lucide."""
+    img, d, hd = _hd_canvas(size)
+    c = _hex_to_rgba(color)
+    cx, cy = hd // 2, hd // 2
+    r = int(hd * 0.40)
+    _circle(d, cx, cy, r, c, width=_HD_STROKE)
+    # Point haut
+    _circle(d, cx, int(hd * 0.32), int(hd * 0.04), c, width=0, fill=c)
+    # Barre verticale
+    _line(d, (cx, int(hd * 0.46)),
+             (cx, int(hd * 0.70)), c, _HD_STROKE)
+    return _finalize(img, size)
+
+
+# ─── icônes pour les TONS de lettre ──────────────────────────────
+def icon_book(size=20, color=Colors.text_secondary):
+    """Livre ouvert / classique."""
+    img, d, hd = _hd_canvas(size)
+    c = _hex_to_rgba(color)
+    # Reliure du livre (rectangle avec ouverture en bas-droite)
+    pts = [
+        (int(hd * 0.15), int(hd * 0.15)),
+        (int(hd * 0.85), int(hd * 0.15)),
+        (int(hd * 0.85), int(hd * 0.78)),
+        (int(hd * 0.25), int(hd * 0.78)),
+        (int(hd * 0.20), int(hd * 0.85)),
+        (int(hd * 0.20), int(hd * 0.20)),
+    ]
+    d.line(pts + [pts[0]], fill=c, width=_HD_STROKE, joint="curve")
+    # 2 lignes de texte
+    for y_frac in (0.36, 0.50):
+        y = int(hd * y_frac)
+        _line(d, (int(hd * 0.32), y), (int(hd * 0.72), y), c, _HD_STROKE)
+    return _finalize(img, size)
+
+
+def icon_bolt(size=20, color=Colors.amber):
+    """Éclair — Dynamique."""
+    img, d, hd = _hd_canvas(size)
+    c = _hex_to_rgba(color)
+    d.polygon([
+        (int(hd * 0.55), int(hd * 0.08)),
+        (int(hd * 0.20), int(hd * 0.55)),
+        (int(hd * 0.45), int(hd * 0.55)),
+        (int(hd * 0.40), int(hd * 0.92)),
+        (int(hd * 0.80), int(hd * 0.40)),
+        (int(hd * 0.50), int(hd * 0.40)),
+        (int(hd * 0.55), int(hd * 0.08)),
+    ], outline=c, width=_HD_STROKE)
+    return _finalize(img, size)
+
+
+def icon_bulb(size=20, color=Colors.amber):
+    """Ampoule — Créatif."""
+    img, d, hd = _hd_canvas(size)
+    c = _hex_to_rgba(color)
+    # Demi-cercle haut (ampoule)
+    d.arc([int(hd * 0.22), int(hd * 0.12),
+           int(hd * 0.78), int(hd * 0.68)],
+          180, 360, fill=c, width=_HD_STROKE)
+    # Connexion au pied
+    _line(d, (int(hd * 0.30), int(hd * 0.40)),
+             (int(hd * 0.30), int(hd * 0.65)), c, _HD_STROKE)
+    _line(d, (int(hd * 0.70), int(hd * 0.40)),
+             (int(hd * 0.70), int(hd * 0.65)), c, _HD_STROKE)
+    # 2 lignes du culot
+    _line(d, (int(hd * 0.32), int(hd * 0.72)),
+             (int(hd * 0.68), int(hd * 0.72)), c, _HD_STROKE)
+    _line(d, (int(hd * 0.36), int(hd * 0.82)),
+             (int(hd * 0.64), int(hd * 0.82)), c, _HD_STROKE)
+    # Pieds tout en bas (V central)
+    _line(d, (int(hd * 0.42), int(hd * 0.88)),
+             (int(hd * 0.58), int(hd * 0.88)), c, _HD_STROKE)
+    return _finalize(img, size)
+
+
+def icon_target(size=20, color=Colors.text_secondary):
+    """Cible — Direct (3 cercles concentriques)."""
+    img, d, hd = _hd_canvas(size)
+    c = _hex_to_rgba(color)
+    cx, cy = hd // 2, hd // 2
+    _circle(d, cx, cy, int(hd * 0.42), c, width=_HD_STROKE)
+    _circle(d, cx, cy, int(hd * 0.26), c, width=_HD_STROKE)
+    _circle(d, cx, cy, int(hd * 0.10), c, width=0, fill=c)
+    return _finalize(img, size)
+
+
 # ─── Construction CTkImage à la demande ─────────────────────────
 def ctk_icon(icon_fn, size=20, **kwargs):
     """Construit un CTkImage depuis une fonction icon_*.

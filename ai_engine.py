@@ -38,9 +38,12 @@ class AIEngine:
         prompt = self._build_prompt_email(offre, cfg)
         return self._run(prompt, offre, cfg, mode="email")
 
-    def generate_cover_letter(self, offre, config=None):
+    def generate_cover_letter(self, offre, config=None, tone=None):
+        """Génère une lettre de motivation.
+        `tone` : clé dans tones.TONES (classique/dynamique/creatif/direct).
+        Si None, ton classique par défaut."""
         cfg = config or self.config
-        prompt = self._build_prompt_lettre(offre, cfg)
+        prompt = self._build_prompt_lettre(offre, cfg, tone=tone)
         return self._run(prompt, offre, cfg, mode="lettre")
 
     def _run(self, prompt, offre, cfg, mode="email"):
@@ -123,7 +126,7 @@ STRUCTURE (TRÈS sobre, très court) :
 
 Écris UNIQUEMENT le mail, rien d'autre."""
 
-    def _build_prompt_lettre(self, offre, config):
+    def _build_prompt_lettre(self, offre, config, tone=None):
         profil = config.get("profil", {})
         exp = config.get("experience", {})
         cv_txt = self._cv_excerpt(config)
@@ -132,7 +135,16 @@ STRUCTURE (TRÈS sobre, très court) :
         cv_block = f"\nEXTRAIT DE CV (source de vérité) :\n{cv_txt}\n" if cv_txt else ""
         lettre_block = f"\nLETTRE DE RÉFÉRENCE (réutilise ce ton/style) :\n{lettre_ref}\n" if lettre_ref else ""
 
+        # Règles de ton (classique / dynamique / créatif / direct)
+        tone_block = ""
+        try:
+            import tones
+            tone_block = "\n" + tones.tone_rules(tone or tones.default_tone()) + "\n"
+        except Exception:
+            pass
+
         return f"""Tu es un expert RH. Rédige une lettre de motivation professionnelle en français (300 mots max).
+{tone_block}
 
 PROFIL :
 - Nom : {profil.get('prenom')} {profil.get('nom')}

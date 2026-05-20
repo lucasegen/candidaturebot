@@ -1,6 +1,6 @@
 {
-  "version": "1.0.15",
-  "url": "https://github.com/lucasegen/candidaturebot/releases/download/v1.0.15/CandidatureBot-1.0.15.zip",
-  "notes": "UX : pagination sticky en haut de la liste.\n\nLa barre de pagination (← Précédent / Page X/Y / Suivant →) est maintenant fixée en haut de la zone de résultats, juste sous les filtres (mots-clés, lieu, contrat, Afficher). Plus besoin de scroller jusqu'en bas pour changer de page.\n\nVisible uniquement quand il y a plus d'une page de résultats — disparaît automatiquement si tout tient sur une page.",
+  "version": "1.0.16",
+  "url": "https://github.com/lucasegen/candidaturebot/releases/download/v1.0.16/CandidatureBot-1.0.16.zip",
+  "notes": "Refonte complète page Candidatures.\n\n• Vue tableau dense : checkbox · Statut · Entreprise/Poste · Lieu · Lien (plus de Source ni Date ni ⋯)\n• Filtres : recherche texte + statut + lieu\n• Bulk actions : Exporter CSV / Préparer dossiers / Supprimer la sélection\n• Click ligne → workflow fullscreen (taille de l'app)\n• Workflow en 3 étapes : Lettre IA (avec 4 tons : Classique/Dynamique/Créatif/Direct) → Mail → Envoi adaptatif\n• Étape Envoi : 1 clic si email trouvé, 4 méthodes alternatives sinon (Ouvrir l'offre / Préparer dossier ZIP / Copier presse-papier / Saisir email direct)\n• Bouton 'Préparer dossiers' (bulk) : génère 1 ZIP par candidature dans ~/Downloads/CandidatureBot/, ouvre le Finder",
   "released": "2026-05-21"
 }

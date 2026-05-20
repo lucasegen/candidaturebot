@@ -1,6 +1,6 @@
 {
-  "version": "1.0.10",
-  "url": "https://github.com/lucasegen/candidaturebot/releases/download/v1.0.10/CandidatureBot-1.0.10.zip",
-  "notes": "Fix SSL + icônes anti-aliasées propres.\n\n• Fix SSL CERTIFICATE_VERIFY_FAILED : urllib utilise maintenant le bundle de certificats de certifi (le bundle PyInstaller n'a pas accès au CA store macOS)\n• Icônes redessinées en haute résolution (×4) avec resize LANCZOS = lignes fines anti-aliasées style Lucide\n• Icônes remises dans : sidebar (search, list, loop, user, settings) + boutons primaires (Lancer la recherche, Sauvegarder, Vérifier MAJ, Supprimer)\n• Bouton aide bas sidebar : icône cercle interrogation HD",
+  "version": "1.0.11",
+  "url": "https://github.com/lucasegen/candidaturebot/releases/download/v1.0.11/CandidatureBot-1.0.11.zip",
+  "notes": "Logos des sites + diagnostic Scrapling.\n\n• Dans 'Gérer les sources', chaque plateforme affiche maintenant son logo (favicon récupéré via Google s2, caché en local dans data/logos/)\n• Bouton 'Tester Scrapling' qui fait un appel HTTP réel et affiche : status HTTP + User-Agent — permet de vérifier instantanément que Scrapling tourne dans le bundle\n• Logos téléchargés en thread → UI jamais bloquée",
   "released": "2026-05-20"
 }

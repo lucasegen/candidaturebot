@@ -27,7 +27,7 @@ ICONS = theme
 # En mode source on retombe sur le dossier du projet pour ne pas
 # casser le développement habituel.
 CONFIG_PATH = str(app_paths.config_path())
-APP_VERSION = "1.0.10"
+APP_VERSION = "1.0.11"
 SUPPORT_EMAIL = "candidaturebot.ai@gmail.com"
 
 # 🌐 URL du manifest de mise à jour.
@@ -1052,6 +1052,92 @@ class App(ctk.CTk):
     # ══════════════════════════════════════════════════════════
     # 🌐 GESTIONNAIRE DE SOURCES
     # ══════════════════════════════════════════════════════════
+    def _test_scrapling(self):
+        """Test live : essaie d'importer Scrapling et de faire un GET réel.
+        Affiche le résultat dans le label de statut."""
+        if not hasattr(self, "_scrapling_status_label"):
+            return
+        self._scrapling_status_label.configure(
+            text="Test en cours...", text_color=THEME.text_muted)
+
+        def task():
+            try:
+                from scrapling import Fetcher
+                r = Fetcher.get("https://httpbin.org/get", timeout=10,
+                                stealthy_headers=True)
+                status = r.status
+                ua = ""
+                try:
+                    import json as _j
+                    body = _j.loads(r.html_content or "{}")
+                    ua = body.get("headers", {}).get("User-Agent", "")[:40]
+                except Exception:
+                    pass
+                msg = f"OK — HTTP {status}, UA = {ua or 'inconnu'}"
+                color = THEME.green_ok
+            except ImportError as e:
+                msg = f"ÉCHEC import : {e}"
+                color = THEME.red_danger
+            except Exception as e:
+                msg = f"ÉCHEC requête : {type(e).__name__} — {str(e)[:60]}"
+                color = THEME.red_danger
+            self.after(0, lambda: self._scrapling_status_label.configure(
+                text=msg, text_color=color))
+
+        threading.Thread(target=task, daemon=True).start()
+
+    # Mapping source_key → domain (pour les logos via favicons Google)
+    _SOURCE_DOMAINS = {
+        "france_travail":     "francetravail.fr",
+        "indeed":             "indeed.com",
+        "linkedin":           "linkedin.com",
+        "apec":               "apec.fr",
+        "welcometothejungle": "welcometothejungle.com",
+        "hellowork":          "hellowork.com",
+        "talent":             "talent.com",
+        "jooble":             "jooble.org",
+        "adzuna":             "adzuna.com",
+    }
+
+    def _fetch_logo(self, domain, size=32):
+        """Récupère le favicon d'un domaine via Google s2 + cache local.
+        Retourne un CTkImage prêt à utiliser, ou None si échec."""
+        try:
+            logos_dir = app_paths.data_dir() / "logos"
+            logos_dir.mkdir(exist_ok=True)
+            cache_path = logos_dir / f"{domain}_{size}.png"
+
+            # Charge depuis cache si existe
+            if cache_path.exists() and cache_path.stat().st_size > 100:
+                img = Image.open(cache_path).convert("RGBA")
+            else:
+                # Download via Google s2 (stable, gratuit, pas de clé)
+                import urllib.request, ssl as _ssl
+                try:
+                    import certifi as _crt
+                    ctx = _ssl.create_default_context(cafile=_crt.where())
+                except Exception:
+                    ctx = _ssl.create_default_context()
+                url = (f"https://www.google.com/s2/favicons"
+                       f"?domain={domain}&sz={size * 2}")
+                req = urllib.request.Request(
+                    url, headers={"User-Agent": "CandidatureBot/1.0"}
+                )
+                with urllib.request.urlopen(req, context=ctx, timeout=6) as r:
+                    data = r.read()
+                cache_path.write_bytes(data)
+                from io import BytesIO
+                img = Image.open(BytesIO(data)).convert("RGBA")
+
+            # Resize anti-aliasé à la taille demandée
+            if img.size != (size, size):
+                img = img.resize((size, size), Image.LANCZOS)
+            return ctk.CTkImage(light_image=img, dark_image=img,
+                                size=(size, size))
+        except Exception as e:
+            print(f"[logo] {domain}: {e}")
+            return None
+
     def show_sources_manager(self):
         win = ctk.CTkToplevel(self)
         win.title("Gérer les sources de recherche")
@@ -1101,10 +1187,26 @@ class App(ctk.CTk):
         for key, (label, desc) in BUILTIN.items():
             row = ctk.CTkFrame(scroll, fg_color=THEME.bg_panel_alt, corner_radius=8)
             row.pack(fill="x", pady=3)
-            row.grid_columnconfigure(0, weight=1)
+            row.grid_columnconfigure(1, weight=1)
+
+            # Logo du site (favicon Google, caché en local)
+            domain = self._SOURCE_DOMAINS.get(key, "")
+            logo_lbl = ctk.CTkLabel(row, text="", width=40)
+            logo_lbl.grid(row=0, column=0, padx=(12, 4), pady=8)
+            if domain:
+                # Téléchargement en thread pour ne pas bloquer l'UI
+                def _load_logo(d=domain, lbl=logo_lbl):
+                    img = self._fetch_logo(d, size=32)
+                    if img is not None:
+                        try:
+                            if lbl.winfo_exists():
+                                self.after(0, lambda: lbl.configure(image=img))
+                        except Exception:
+                            pass
+                threading.Thread(target=_load_logo, daemon=True).start()
 
             info = ctk.CTkFrame(row, fg_color="transparent")
-            info.grid(row=0, column=0, sticky="w", padx=12, pady=8)
+            info.grid(row=0, column=1, sticky="w", padx=(4, 12), pady=8)
             ctk.CTkLabel(info, text=label, font=ctk.CTkFont(weight="bold")).pack(anchor="w")
             ctk.CTkLabel(info, text=desc, text_color="gray",
                          font=ctk.CTkFont(size=11)).pack(anchor="w")
@@ -1114,8 +1216,25 @@ class App(ctk.CTk):
                 sw.select()
             else:
                 sw.deselect()
-            sw.grid(row=0, column=1, padx=(0, 12))
+            sw.grid(row=0, column=2, padx=(0, 12))
             self.source_switches[key] = sw
+
+        # Bouton "Tester Scrapling" : vérifie que la lib HTTP fonctionne dans le bundle
+        test_row = ctk.CTkFrame(scroll, fg_color="transparent")
+        test_row.pack(fill="x", pady=(12, 4))
+        ctk.CTkButton(
+            test_row, text="Tester Scrapling",
+            command=self._test_scrapling,
+            height=32, width=180, corner_radius=16,
+            fg_color=THEME.bg_panel_alt, hover_color=THEME.bg_hover,
+            text_color=THEME.text_primary,
+            font=ctk.CTkFont(size=12, weight="bold")
+        ).pack(side="left")
+        self._scrapling_status_label = ctk.CTkLabel(
+            test_row, text="", text_color=THEME.text_muted,
+            font=ctk.CTkFont(size=11)
+        )
+        self._scrapling_status_label.pack(side="left", padx=(10, 0))
 
         ctk.CTkLabel(
             scroll, text="Sites personnalisés",

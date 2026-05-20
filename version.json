@@ -1,6 +1,6 @@
 {
-  "version": "1.0.7",
-  "url": "https://github.com/lucasegen/candidaturebot/releases/download/v1.0.7/CandidatureBot-1.0.7.zip",
-  "notes": "Refonte UI : palette bleue + icônes paint partout.\n\n• Couleur primaire passe du orange #d36531 au bleu broadcast #1f6aa5 (item actif sidebar, boutons primaires, badges)\n• Icônes vectorielles peintes ajoutées dans :\n  - Sidebar : search, list, loop, user, settings — couleur change automatiquement quand l'item est actif (blanc / gris)\n  - Boutons primaires : Lancer la recherche (loupe), Sauvegarder (disquette), Vérifier les MAJ (refresh), Supprimer la sélection (trash)\n  - Sous-libellés des cartes d'offres : icône immeuble pour l'entreprise, pin pour le lieu, mallette pour le contrat, enveloppe pour l'email\n  - Bouton aide bas sidebar : '?' remplacé par cercle interrogation\n• Nouvelles icônes paint : save, mail_send, briefcase, pin, building",
+  "version": "1.0.8",
+  "url": "https://github.com/lucasegen/candidaturebot/releases/download/v1.0.8/CandidatureBot-1.0.8.zip",
+  "notes": "Cleanup UI : icônes paint retirées (style moins moche).\n\n• Toutes les icônes vectorielles PIL (que j'avais dessinées à la main) supprimées : sidebar full-text, cartes d'offres avec séparateur · simple, boutons primaires sans icône\n• Style boutons inspiré shadcn : corner_radius=20 sur les principaux boutons (pill style), font bold, hover smooth\n• Sidebar items : corner_radius=8, hauteur 40, texte CAPS bold\n• Bouton '?' aide : cercle 36×36 avec '?' centré (sans icône PIL)\n• Palette bleue conservée (#1f6aa5)",
   "released": "2026-05-20"
 }

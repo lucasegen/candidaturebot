@@ -27,7 +27,7 @@ ICONS = theme
 # En mode source on retombe sur le dossier du projet pour ne pas
 # casser le développement habituel.
 CONFIG_PATH = str(app_paths.config_path())
-APP_VERSION = "1.0.13"
+APP_VERSION = "1.0.14"
 SUPPORT_EMAIL = "candidaturebot.ai@gmail.com"
 
 # 🌐 URL du manifest de mise à jour.
@@ -555,12 +555,20 @@ class App(ctk.CTk):
 
         threading.Thread(target=task, daemon=True).start()
 
+    # Nombre de cartes affichées par page dans la recherche (perf)
+    SEARCH_PAGE_SIZE = 25
+
     def _display_offres(self, offres, error=None):
         self._searching = False
         self.search_btn.configure(
             state="normal", text="Lancer la recherche",
             fg_color=THEME.accent, hover_color=THEME.accent_hover
         )
+        # Reset pagination quand on relance une recherche
+        # (mais pas quand on re-applique le filtre/limite sur cache)
+        if not getattr(self, "_search_keep_page", False):
+            self._search_page = 0
+        self._search_keep_page = False
         for w in self.search_box.winfo_children():
             w.destroy()
 
@@ -673,14 +681,29 @@ class App(ctk.CTk):
             key = (c.get("entreprise", ""), c.get("poste", ""), c.get("url", ""))
             already.add(key)
 
-        for i, o in enumerate(offres):
+        # Pre-création des BooleanVars pour TOUTES les offres (pas que la
+        # page) — sinon "Tout sélectionner" ne marche que sur la page.
+        for i, _o in enumerate(offres):
+            if i not in self._offres_selection:
+                self._offres_selection[i] = ctk.BooleanVar(value=False)
+
+        # Pagination : on ne RENDER que les cartes de la page courante
+        page_size = self.SEARCH_PAGE_SIZE
+        max_page = max(0, (displayed_count - 1) // page_size)
+        if not hasattr(self, "_search_page"):
+            self._search_page = 0
+        self._search_page = max(0, min(self._search_page, max_page))
+        page_start = self._search_page * page_size
+        page_end = min(page_start + page_size, displayed_count)
+
+        for i in range(page_start, page_end):
+            o = offres[i]
             card = ctk.CTkFrame(self.search_box, corner_radius=8)
             card.pack(fill="x", pady=4, padx=5)
             card.grid_columnconfigure(1, weight=1)
 
-            # Case à cocher à gauche
-            sel_var = ctk.BooleanVar(value=False)
-            self._offres_selection[i] = sel_var
+            # Case à cocher à gauche (BooleanVar déjà pré-créé)
+            sel_var = self._offres_selection[i]
             ctk.CTkCheckBox(
                 card, text="", variable=sel_var,
                 command=_refresh_count,
@@ -742,6 +765,46 @@ class App(ctk.CTk):
             )
             btn.pack(side="left")
             self._postule_buttons[i] = {"btn": btn, "done": is_already}
+
+        # ── Footer pagination ────────────────────────────────────
+        if max_page > 0:
+            pager = ctk.CTkFrame(self.search_box, fg_color="transparent")
+            pager.pack(fill="x", pady=(8, 8))
+
+            def _prev():
+                self._search_page = max(0, self._search_page - 1)
+                self._search_keep_page = True
+                self._display_offres(self._last_search_offres)
+
+            def _next():
+                self._search_page = min(max_page, self._search_page + 1)
+                self._search_keep_page = True
+                self._display_offres(self._last_search_offres)
+
+            ctk.CTkButton(
+                pager, text="← Précédent",
+                command=_prev,
+                state=("normal" if self._search_page > 0 else "disabled"),
+                width=110, height=32, corner_radius=16,
+                fg_color=THEME.bg_panel_alt, hover_color=THEME.bg_hover,
+                text_color=THEME.text_primary,
+            ).pack(side="left", padx=(8, 4))
+
+            ctk.CTkLabel(
+                pager,
+                text=f"Page {self._search_page + 1} / {max_page + 1}   "
+                     f"({page_start + 1}–{page_end} sur {displayed_count})",
+                text_color=THEME.text_secondary, font=ctk.CTkFont(size=12)
+            ).pack(side="left", expand=True)
+
+            ctk.CTkButton(
+                pager, text="Suivant →",
+                command=_next,
+                state=("normal" if self._search_page < max_page else "disabled"),
+                width=110, height=32, corner_radius=16,
+                fg_color=THEME.bg_panel_alt, hover_color=THEME.bg_hover,
+                text_color=THEME.text_primary,
+            ).pack(side="right", padx=(4, 8))
 
     def _apply_display_limit(self, offres):
         raw = (self.search_limit_var.get()

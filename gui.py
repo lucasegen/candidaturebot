@@ -27,7 +27,7 @@ ICONS = theme
 # En mode source on retombe sur le dossier du projet pour ne pas
 # casser le développement habituel.
 CONFIG_PATH = str(app_paths.config_path())
-APP_VERSION = "1.0.14"
+APP_VERSION = "1.0.15"
 SUPPORT_EMAIL = "candidaturebot.ai@gmail.com"
 
 # 🌐 URL du manifest de mise à jour.
@@ -430,6 +430,13 @@ class App(ctk.CTk):
         # garantit que le texte du bouton reflète bien la valeur
         self._search_limit_omenu.set(saved_limit)
 
+        # Pagination sticky : sous les filtres, au-dessus du scroll, visible
+        # seulement quand max_page > 0. Pack manuel dans _display_offres.
+        self.pagination_bar = ctk.CTkFrame(
+            self.search_body, fg_color=THEME.bg_panel_alt, corner_radius=8
+        )
+        # On NE pack PAS ici — sera packé dans _display_offres si pagination utile
+
         self.search_box = ctk.CTkScrollableFrame(self.search_body)
         self.search_box.pack(fill="both", expand=True, pady=(0, 10))
 
@@ -571,6 +578,14 @@ class App(ctk.CTk):
         self._search_keep_page = False
         for w in self.search_box.winfo_children():
             w.destroy()
+        # Vide aussi la barre de pagination sticky (cas error/empty)
+        if hasattr(self, "pagination_bar"):
+            for w in self.pagination_bar.winfo_children():
+                w.destroy()
+            try:
+                self.pagination_bar.pack_forget()
+            except Exception:
+                pass
 
         if error:
             ctk.CTkLabel(
@@ -766,10 +781,16 @@ class App(ctk.CTk):
             btn.pack(side="left")
             self._postule_buttons[i] = {"btn": btn, "done": is_already}
 
-        # ── Footer pagination ────────────────────────────────────
-        if max_page > 0:
-            pager = ctk.CTkFrame(self.search_box, fg_color="transparent")
-            pager.pack(fill="x", pady=(8, 8))
+        # ── Pagination STICKY (entre filtres et liste, visible si besoin)
+        if max_page > 0 and hasattr(self, "pagination_bar"):
+            # Insère AVANT search_box (juste sous les filtres)
+            try:
+                self.pagination_bar.pack(
+                    fill="x", pady=(0, 8), padx=0,
+                    before=self.search_box
+                )
+            except Exception:
+                self.pagination_bar.pack(fill="x", pady=(0, 8))
 
             def _prev():
                 self._search_page = max(0, self._search_page - 1)
@@ -782,29 +803,32 @@ class App(ctk.CTk):
                 self._display_offres(self._last_search_offres)
 
             ctk.CTkButton(
-                pager, text="← Précédent",
+                self.pagination_bar, text="← Précédent",
                 command=_prev,
                 state=("normal" if self._search_page > 0 else "disabled"),
-                width=110, height=32, corner_radius=16,
-                fg_color=THEME.bg_panel_alt, hover_color=THEME.bg_hover,
+                width=110, height=30, corner_radius=15,
+                fg_color=THEME.bg_panel, hover_color=THEME.bg_hover,
                 text_color=THEME.text_primary,
-            ).pack(side="left", padx=(8, 4))
+                font=ctk.CTkFont(size=12, weight="bold")
+            ).pack(side="left", padx=(8, 4), pady=6)
 
             ctk.CTkLabel(
-                pager,
+                self.pagination_bar,
                 text=f"Page {self._search_page + 1} / {max_page + 1}   "
                      f"({page_start + 1}–{page_end} sur {displayed_count})",
-                text_color=THEME.text_secondary, font=ctk.CTkFont(size=12)
-            ).pack(side="left", expand=True)
+                text_color=THEME.text_secondary,
+                font=ctk.CTkFont(size=12, weight="bold")
+            ).pack(side="left", expand=True, pady=6)
 
             ctk.CTkButton(
-                pager, text="Suivant →",
+                self.pagination_bar, text="Suivant →",
                 command=_next,
                 state=("normal" if self._search_page < max_page else "disabled"),
-                width=110, height=32, corner_radius=16,
-                fg_color=THEME.bg_panel_alt, hover_color=THEME.bg_hover,
+                width=110, height=30, corner_radius=15,
+                fg_color=THEME.bg_panel, hover_color=THEME.bg_hover,
                 text_color=THEME.text_primary,
-            ).pack(side="right", padx=(4, 8))
+                font=ctk.CTkFont(size=12, weight="bold")
+            ).pack(side="right", padx=(4, 8), pady=6)
 
     def _apply_display_limit(self, offres):
         raw = (self.search_limit_var.get()

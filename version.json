@@ -1,6 +1,6 @@
 {
-  "version": "1.0.14",
-  "url": "https://github.com/lucasegen/candidaturebot/releases/download/v1.0.14/CandidatureBot-1.0.14.zip",
-  "notes": "Perf : pagination des résultats de recherche.\n\nAvec 91 offres affichées en même temps, l'UI ramait à fond (~900 widgets Tk). Maintenant : 25 cartes par page max + navigation '← Précédent / Suivant →' en bas, comme dans la page Candidatures.\n\nLa multi-sélection reste cohérente sur toutes les pages : 'Tout sélectionner' coche TOUTES les offres trouvées, pas seulement celles affichées. Les BooleanVars sont pré-créées hors du loop de rendu.",
+  "version": "1.0.15",
+  "url": "https://github.com/lucasegen/candidaturebot/releases/download/v1.0.15/CandidatureBot-1.0.15.zip",
+  "notes": "UX : pagination sticky en haut de la liste.\n\nLa barre de pagination (← Précédent / Page X/Y / Suivant →) est maintenant fixée en haut de la zone de résultats, juste sous les filtres (mots-clés, lieu, contrat, Afficher). Plus besoin de scroller jusqu'en bas pour changer de page.\n\nVisible uniquement quand il y a plus d'une page de résultats — disparaît automatiquement si tout tient sur une page.",
   "released": "2026-05-21"
 }

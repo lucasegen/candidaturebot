@@ -1,6 +1,6 @@
 {
-  "version": "1.0.4",
-  "url": "https://github.com/lucasegen/candidaturebot/releases/download/v1.0.4/CandidatureBot-1.0.4.zip",
-  "notes": "Mise à jour majeure :\n\n• Scrapling intégré → Indeed débloqué (TLS fingerprint Chrome réaliste, bypass Cloudflare)\n• 2 nouvelles sources : Talent.com et Jooble (aggregators FR)\n• 9 sources de jobs au total\n• Refonte UI complète : palette dark professionnelle inspirée des DAW broadcast (orange brand #d36531, gris #1f1f23)\n• Suppression de tous les emojis : remplacés par du texte caps + boutons colorés sémantiques\n• Boutons primaires alignés sur la palette accent",
+  "version": "1.0.5",
+  "url": "https://github.com/lucasegen/candidaturebot/releases/download/v1.0.5/CandidatureBot-1.0.5.zip",
+  "notes": "Bugfix critique + refonte UI globale.\n\n• Scrapling, browserforge et playwright maintenant correctement bundlés (étaient absents en v1.0.4 → seul LinkedIn fonctionnait)\n• Indeed, Talent.com, Jooble, HelloWork actifs dès le premier lancement\n• Refonte UI complète via agent design spécialisé : tous les emojis retirés (titres, sous-libellés des cartes, popups), palette Disco DAW appliquée partout, sidebar item actif en orange brand, boutons sources et statuts harmonisés sur la palette\n• Boutons Voir l'offre / Ajouter passent en layout horizontal\n• Bundle 387 Mo (vs 253 avant) à cause du bundle Scrapling complet",
   "released": "2026-05-20"
 }

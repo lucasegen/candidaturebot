@@ -11,13 +11,32 @@ Sortie :
 """
 import sys
 from pathlib import Path
+from PyInstaller.utils.hooks import collect_all, collect_submodules
 
 ROOT = Path(SPECPATH).resolve()
+
+# ─── Scrapling et ses dépendances : collect_all force PyInstaller
+#     à inclure TOUS les sous-modules + data files (les imports lazy
+#     via __getattr__ ne sont pas suivis automatiquement).
+def _collect(name):
+    try:
+        return collect_all(name)
+    except Exception as e:
+        print(f"[spec] collect_all({name}) failed: {e}")
+        return ([], [], [])
+
+_scrap_d, _scrap_b, _scrap_h = _collect("scrapling")
+_brwf_d,  _brwf_b,  _brwf_h  = _collect("browserforge")
+_curl_d,  _curl_b,  _curl_h  = _collect("curl_cffi")
+_fuag_d,  _fuag_b,  _fuag_h  = _collect("fake_useragent")
+_plw_d,   _plw_b,   _plw_h   = _collect("playwright")
 
 # ─── Données embarquées (read-only dans le bundle) ─────────────
 datas = [
     (str(ROOT / "config.template.json"), "."),
-]
+] + _scrap_d + _brwf_d + _curl_d + _fuag_d + _plw_d
+
+binaries = _scrap_b + _brwf_b + _curl_b + _fuag_b + _plw_b
 
 # ─── Imports cachés (PyInstaller ne les détecte pas tout seul) ─
 hiddenimports = [
@@ -46,16 +65,28 @@ hiddenimports = [
     "cv_parser",
     "ollama_installer",
     "profile_manager",
-    # Scrapling + dépendances
+    # Scrapling + dépendances (les noms statiques en complément de collect_all)
     "scrapling",
+    "scrapling.fetchers",
+    "scrapling.fetchers.requests",
+    "scrapling.engines",
+    "scrapling.engines.static",
+    "scrapling.engines.toolbelt",
+    "scrapling.engines.toolbelt.fingerprints",
+    "scrapling.engines._browsers",
+    "scrapling.engines._browsers._types",
+    "scrapling.parser",
     "curl_cffi",
+    "curl_cffi.requests",
     "browserforge",
+    "browserforge.headers",
     "fake_useragent",
     "w3lib",
     "tldextract",
     "playwright",
+    "playwright._impl._errors",
     "pyee",
-]
+] + _scrap_h + _brwf_h + _curl_h + _fuag_h + _plw_h
 
 # ─── Modules exclus pour réduire la taille ─────────────────────
 excludes = [
@@ -69,7 +100,7 @@ block_cipher = None
 a = Analysis(
     ["gui.py"],
     pathex=[str(ROOT)],
-    binaries=[],
+    binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports,
     hookspath=[],

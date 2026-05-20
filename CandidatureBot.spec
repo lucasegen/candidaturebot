@@ -91,12 +91,10 @@ hiddenimports = [
     "theme",
     "ai_engine",
     "scraper",
-    "tracker",
     "mail_sender",
     "pdf_generator",
     "cv_parser",
     "ollama_installer",
-    "profile_manager",
     # Scrapling + dépendances (les noms statiques en complément de collect_all)
     "scrapling",
     "scrapling.fetchers",

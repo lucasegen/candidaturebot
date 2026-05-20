@@ -58,19 +58,17 @@ Toutes les apps connectées détectent automatiquement la mise à jour.
 
 ```
 gui.py                  Application principale (CustomTkinter)
-scraper.py              Sources d'offres d'emploi
-ai_engine.py            Moteur IA multi-backend
+scraper.py              Sources d'offres (LinkedIn, Indeed, HelloWork...)
+ai_engine.py            Moteur IA multi-backend (Ollama/OpenAI/Claude)
 mail_sender.py          Envoi Gmail SMTP
-pdf_generator.py        Génération PDF lettres
-cv_parser.py            Extraction texte/profil depuis CV
+pdf_generator.py        Génération PDF des lettres de motivation
+cv_parser.py            Extraction texte/profil depuis CV (PDF/DOCX)
 ollama_installer.py     Install one-click Ollama
-tracker.py              Suivi candidatures (CLI)
-profile_manager.py      Gestion profil (CLI)
-main.py                 Point d'entrée CLI (rich)
+theme.py                Palette dark + icônes vectorielles HD
 app_paths.py            Chemins user data cross-platform
-CandidatureBot.spec     Config PyInstaller
+CandidatureBot.spec     Config PyInstaller (build)
 config.template.json    Config par défaut bundlée
-version.json            Manifest de mise à jour
+version.json            Manifest de mise à jour OTA
 ```
 
 ## 📝 Configuration utilisateur

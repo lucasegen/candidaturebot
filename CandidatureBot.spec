@@ -30,13 +30,45 @@ _brwf_d,  _brwf_b,  _brwf_h  = _collect("browserforge")
 _curl_d,  _curl_b,  _curl_h  = _collect("curl_cffi")
 _fuag_d,  _fuag_b,  _fuag_h  = _collect("fake_useragent")
 _plw_d,   _plw_b,   _plw_h   = _collect("playwright")
+_patch_d, _patch_b, _patch_h = _collect("patchright")
+_w3l_d,   _w3l_b,   _w3l_h   = _collect("w3lib")
+_tldx_d,  _tldx_b,  _tldx_h  = _collect("tldextract")
+_pyee_d,  _pyee_b,  _pyee_h  = _collect("pyee")
+
+
+def _drop_drivers(coll):
+    """Filtre les drivers Node.js/browsers Playwright (~115 Mo chacun) que
+    Scrapling n'utilise PAS en mode Fetcher HTTP. On garde seulement le
+    code Python qui satisfait les imports au chargement."""
+    out = []
+    for src, dst in coll:
+        d = str(dst).replace("\\", "/")
+        # Tout ce qui est dans driver/ → exclu (drivers natifs lourds)
+        if "/driver/" in d or d.endswith("/driver"):
+            continue
+        if "/node/" in d or "/browsers/" in d:
+            continue
+        out.append((src, dst))
+    return out
+
+
+_scrap_d = _drop_drivers(_scrap_d)
+_brwf_d  = _drop_drivers(_brwf_d)
+_plw_d   = _drop_drivers(_plw_d)
+_patch_d = _drop_drivers(_patch_d)
+_scrap_b = _drop_drivers(_scrap_b)
+_brwf_b  = _drop_drivers(_brwf_b)
+_plw_b   = _drop_drivers(_plw_b)
+_patch_b = _drop_drivers(_patch_b)
 
 # ─── Données embarquées (read-only dans le bundle) ─────────────
 datas = [
     (str(ROOT / "config.template.json"), "."),
-] + _scrap_d + _brwf_d + _curl_d + _fuag_d + _plw_d
+] + _scrap_d + _brwf_d + _curl_d + _fuag_d + _plw_d + _patch_d \
+  + _w3l_d + _tldx_d + _pyee_d
 
-binaries = _scrap_b + _brwf_b + _curl_b + _fuag_b + _plw_b
+binaries = _scrap_b + _brwf_b + _curl_b + _fuag_b + _plw_b + _patch_b \
+         + _w3l_b + _tldx_b + _pyee_b
 
 # ─── Imports cachés (PyInstaller ne les détecte pas tout seul) ─
 hiddenimports = [
@@ -86,7 +118,8 @@ hiddenimports = [
     "playwright",
     "playwright._impl._errors",
     "pyee",
-] + _scrap_h + _brwf_h + _curl_h + _fuag_h + _plw_h
+] + _scrap_h + _brwf_h + _curl_h + _fuag_h + _plw_h \
+  + _w3l_h + _tldx_h + _pyee_h
 
 # ─── Modules exclus pour réduire la taille ─────────────────────
 excludes = [

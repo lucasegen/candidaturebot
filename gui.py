@@ -27,7 +27,7 @@ ICONS = theme
 # En mode source on retombe sur le dossier du projet pour ne pas
 # casser le développement habituel.
 CONFIG_PATH = str(app_paths.config_path())
-APP_VERSION = "1.0.5"
+APP_VERSION = "1.0.6"
 SUPPORT_EMAIL = "candidaturebot.ai@gmail.com"
 
 # 🌐 URL du manifest de mise à jour.
@@ -4139,8 +4139,8 @@ class App(ctk.CTk):
         fichiers (sauf config.json / data/ / .env), puis redémarre."""
         zip_path = None
         extract_root = None
-        # Limite à 100 Mo pour éviter un DoS disque sur URL malveillante
-        MAX_DOWNLOAD = 100 * 1024 * 1024
+        # Limite à 500 Mo (bundle inclut Scrapling/Playwright — peut peser ~150 Mo zippé)
+        MAX_DOWNLOAD = 500 * 1024 * 1024
         try:
             import requests
             url = data.get("url")

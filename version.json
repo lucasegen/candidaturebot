@@ -1,6 +1,6 @@
 {
-  "version": "1.0.5",
-  "url": "https://github.com/lucasegen/candidaturebot/releases/download/v1.0.5/CandidatureBot-1.0.5.zip",
-  "notes": "Bugfix critique + refonte UI globale.\n\n• Scrapling, browserforge et playwright maintenant correctement bundlés (étaient absents en v1.0.4 → seul LinkedIn fonctionnait)\n• Indeed, Talent.com, Jooble, HelloWork actifs dès le premier lancement\n• Refonte UI complète via agent design spécialisé : tous les emojis retirés (titres, sous-libellés des cartes, popups), palette Disco DAW appliquée partout, sidebar item actif en orange brand, boutons sources et statuts harmonisés sur la palette\n• Boutons Voir l'offre / Ajouter passent en layout horizontal\n• Bundle 387 Mo (vs 253 avant) à cause du bundle Scrapling complet",
+  "version": "1.0.6",
+  "url": "https://github.com/lucasegen/candidaturebot/releases/download/v1.0.6/CandidatureBot-1.0.6.zip",
+  "notes": "Bundle allégé (60 Mo zippé vs 145 en v1.0.5) — installe-toi via OTA depuis v1.0.4/v1.0.5 qui plantaient sur la limite 100 Mo.\n\n• Drivers Node.js de Playwright/Patchright retirés (~230 Mo de gain) : on n'utilise que Scrapling Fetcher HTTP, pas les browsers\n• Tous les modules Scrapling + deps (w3lib, tldextract, pyee) maintenant correctement bundlés\n• Limite OTA passée à 500 Mo pour les futures versions\n• 9 sources de scraping enfin opérationnelles : LinkedIn, Indeed, HelloWork, Talent.com, Jooble, France Travail, APEC, WTTJ, Adzuna",
   "released": "2026-05-20"
 }

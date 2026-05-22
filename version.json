@@ -1,6 +1,6 @@
 {
-  "version": "1.0.22",
-  "url": "https://github.com/lucasegen/candidaturebot/releases/download/v1.0.22/CandidatureBot-1.0.22.zip",
-  "notes": "Refonte UI des pages « Mes infos » et « Paramètres » :\n\n• Mes infos : header profil avec avatar (initiales), barre de complétude (75% · manque…), layout 2 colonnes, compétences/langues en chips cliquables avec ajout/suppression, CV avec aperçu (taille, date, mots) et score ATS visible directement, footer sticky.\n\n• Paramètres : sous-onglets (Comptes / IA / Recherche / Mises à jour) au lieu d'un mega-scroll, cards par service avec logo + status dot (vert/orange/gris), boutons « Tester » inline (SMTP Gmail + OAuth France Travail), toggle ON/OFF Adzuna, footer sticky.\n\n• Nouveau widget ChipsEditor réutilisable (wrap natif via Tk Text).\n\n• Le .spec lit maintenant la version depuis version.json — fini le CFBundleShortVersionString figé à 1.0.0.",
+  "version": "1.0.23",
+  "url": "https://github.com/lucasegen/candidaturebot/releases/download/v1.0.23/CandidatureBot-1.0.23.zip",
+  "notes": "Fix 3 bugs UI Paramètres :\n\n• Tabs ré-écrits en custom underline-style (label bold + barre accent sous l'actif) au lieu du CTkTabview par défaut qui rendait moche.\n\n• Fond de la page Paramètres : retour à la couleur dark gray du reste de l'app (avant : THEME.bg = #15151a, trop sombre).\n\n• Flash blanc lors du changement de page : self.main a maintenant un fg_color explicite au lieu de 'transparent' → le Tk natif n'apparaît plus pendant le rebuild.\n\n• L'onglet actif des sous-onglets est mémorisé (cfg.ui.settings_subtab) → on retombe sur la même section au prochain switch.",
   "released": "2026-05-22"
 }

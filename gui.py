@@ -27,7 +27,7 @@ ICONS = theme
 # En mode source on retombe sur le dossier du projet pour ne pas
 # casser le développement habituel.
 CONFIG_PATH = str(app_paths.config_path())
-APP_VERSION = "1.0.22"
+APP_VERSION = "1.0.23"
 SUPPORT_EMAIL = "candidaturebot.ai@gmail.com"
 
 # 🌐 URL du manifest de mise à jour.
@@ -330,7 +330,13 @@ class App(ctk.CTk):
 
         self._build_sidebar()
 
-        self.main = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
+        # fg_color explicite (pas "transparent") pour éviter le flash blanc
+        # lors du _clear_main / rebuild d'une page : le Tk natif sous-jacent
+        # peint en blanc pendant 1 frame avant que CTk applique le dark.
+        self.main = ctk.CTkFrame(
+            self, corner_radius=0,
+            fg_color=("gray86", "gray17")  # match CTk dark default
+        )
         self.main.grid(row=0, column=1, sticky="nsew", padx=20, pady=20)
         self.main.grid_columnconfigure(0, weight=1)
         self.main.grid_rowconfigure(0, weight=1)
@@ -4816,6 +4822,67 @@ class App(ctk.CTk):
     # ══════════════════════════════════════════════════════════
     # ⚙️ PARAMÈTRES
     # ══════════════════════════════════════════════════════════
+    def _build_settings_tab_strip(self, parent, names, on_change, initial):
+        """Tab strip underline-style : labels cliquables avec barre accent
+        sous le tab actif. Pas de CTkTabview (style inégal + flash blanc)."""
+        wrap = ctk.CTkFrame(parent, fg_color="transparent")
+        wrap.pack(fill="both", expand=True)
+
+        # Ligne des boutons + ligne de fond (séparation visuelle)
+        strip_row = ctk.CTkFrame(wrap, fg_color="transparent")
+        strip_row.pack(fill="x")
+        border_line = ctk.CTkFrame(wrap, height=1, fg_color=THEME.border)
+        border_line.pack(fill="x")
+        border_line.pack_propagate(False)
+
+        # Conteneur de contenu (sera rebuilt à chaque switch)
+        content = ctk.CTkFrame(wrap, fg_color="transparent")
+        content.pack(fill="both", expand=True, pady=(12, 0))
+
+        tabs = {}
+
+        def _set(name):
+            for n, (btn, ul) in tabs.items():
+                if n == name:
+                    btn.configure(
+                        text_color=THEME.text_primary,
+                        font=ctk.CTkFont(size=13, weight="bold")
+                    )
+                    ul.configure(fg_color=THEME.accent)
+                else:
+                    btn.configure(
+                        text_color=THEME.text_secondary,
+                        font=ctk.CTkFont(size=13)
+                    )
+                    ul.configure(fg_color="transparent")
+            on_change(name, content)
+
+        for name in names:
+            col = ctk.CTkFrame(strip_row, fg_color="transparent")
+            col.pack(side="left", padx=(0, 2))
+
+            btn = ctk.CTkButton(
+                col, text=name,
+                command=lambda n=name: _set(n),
+                fg_color="transparent",
+                hover_color=THEME.bg_panel_alt,
+                text_color=THEME.text_secondary,
+                font=ctk.CTkFont(size=13),
+                height=32, width=120, corner_radius=4,
+                border_width=0,
+            )
+            btn.pack(side="top")
+
+            # Barre underline (sous le bouton, dans la même colonne)
+            ul = ctk.CTkFrame(col, height=2, fg_color="transparent")
+            ul.pack(side="top", fill="x")
+            ul.pack_propagate(False)
+
+            tabs[name] = (btn, ul)
+
+        _set(initial)
+        return content, _set
+
     def show_settings(self):
         self._set_active("PARAMÈTRES")
         self._remember_tab("settings")
@@ -4839,34 +4906,30 @@ class App(ctk.CTk):
             text_color=THEME.text_muted
         ).pack(side="left", padx=(12, 0), pady=(4, 0))
 
-        # CTkTabview
-        tabs = ctk.CTkTabview(
-            self.main, fg_color=THEME.bg,
-            segmented_button_fg_color=THEME.bg_panel_alt,
-            segmented_button_selected_color=THEME.accent,
-            segmented_button_selected_hover_color=THEME.accent_hover,
-            segmented_button_unselected_color=THEME.bg_panel_alt,
-            segmented_button_unselected_hover_color=THEME.bg_hover,
-            text_color=THEME.text_primary,
+        # ── Tab strip custom (underline-style) ──
+        renderers = {
+            "Comptes":       lambda c: self._build_settings_comptes(c, api, srcs),
+            "IA":            lambda c: self._build_settings_ia(c, api),
+            "Recherche":     lambda c: self._build_settings_recherche(c, rech),
+            "Mises à jour":  lambda c: self._build_settings_maj(c),
+        }
+        # Onglet initialement actif : on récupère le dernier choisi ou "Comptes"
+        last_subtab = self.cfg.get("ui", {}).get("settings_subtab", "Comptes")
+        if last_subtab not in renderers:
+            last_subtab = "Comptes"
+
+        def _on_tab_change(name, content):
+            for w in content.winfo_children():
+                w.destroy()
+            renderers[name](content)
+            self.cfg.setdefault("ui", {})["settings_subtab"] = name
+            save_config(self.cfg)
+
+        self._build_settings_tab_strip(
+            self.main, list(renderers.keys()),
+            on_change=_on_tab_change,
+            initial=last_subtab,
         )
-        tabs.pack(fill="both", expand=True, pady=(0, 0))
-
-        tab_comptes = tabs.add("Comptes")
-        tab_ia      = tabs.add("IA")
-        tab_rech    = tabs.add("Recherche")
-        tab_maj     = tabs.add("Mises à jour")
-
-        # ── Onglet Comptes ──
-        self._build_settings_comptes(tab_comptes, api, srcs)
-
-        # ── Onglet IA ──
-        self._build_settings_ia(tab_ia, api)
-
-        # ── Onglet Recherche ──
-        self._build_settings_recherche(tab_rech, rech)
-
-        # ── Onglet MAJ ──
-        self._build_settings_maj(tab_maj)
 
         # ── Footer sticky : Sauvegarder ──
         footer = ctk.CTkFrame(self.main, fg_color="transparent")

@@ -67,6 +67,7 @@ _patch_b = _drop_drivers(_patch_b)
 # ─── Données embarquées (read-only dans le bundle) ─────────────
 datas = [
     (str(ROOT / "config.template.json"), "."),
+    (str(ROOT / "assets" / "icons"), "assets/icons"),
 ] + _scrap_d + _brwf_d + _curl_d + _fuag_d + _plw_d + _patch_d \
   + _w3l_d + _tldx_d + _pyee_d + _apfd_d
 

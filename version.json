@@ -1,6 +1,6 @@
 {
-  "version": "1.0.18",
-  "url": "https://github.com/lucasegen/candidaturebot/releases/download/v1.0.18/CandidatureBot-1.0.18.zip",
-  "notes": "3 fixes UX workflow :\n\n• Indicateur de génération clair : spinner animé Braille (⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏) + textbox grisé pendant la génération + boutons désactivés. On ne se demande plus si quelque chose se passe.\n• Bouton 'Régénérer' centré dans le footer pour l'étape 2 (Mail) aussi, comme pour l'étape 1.\n• Scroll molette dans les zones texte fixé : si le textbox ne déborde pas, la molette est propagée au parent → on peut scroller la fenêtre même quand le curseur est sur le texte.",
+  "version": "1.0.19",
+  "url": "https://github.com/lucasegen/candidaturebot/releases/download/v1.0.19/CandidatureBot-1.0.19.zip",
+  "notes": "3 fixes Candidatures :\n\n• Dropdown statut plus compact (width 130→108, hauteur 28→26).\n• Zone cliquable réduite à la portion entre le dropdown statut et le bouton Voir (entreprise/poste/lieu). Checkbox et bouton Voir ne déclenchent plus l'ouverture du workflow par accident.\n• Bulk 'Préparer dossiers' génère maintenant la lettre ET le mail via IA pour chaque candidature sélectionnée + popup de progression (X/N en cours, barre, nom de l'entreprise courante). Chaque ZIP contient Lettre.pdf + CV.pdf + mail.txt.",
   "released": "2026-05-22"
 }

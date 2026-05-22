@@ -27,7 +27,7 @@ ICONS = theme
 # En mode source on retombe sur le dossier du projet pour ne pas
 # casser le développement habituel.
 CONFIG_PATH = str(app_paths.config_path())
-APP_VERSION = "1.0.18"
+APP_VERSION = "1.0.19"
 SUPPORT_EMAIL = "candidaturebot.ai@gmail.com"
 
 # 🌐 URL du manifest de mise à jour.
@@ -1930,10 +1930,11 @@ class App(ctk.CTk):
             # Col 1 — dropdown statut (compact, couleur du statut)
             statut_var = ctk.StringVar(value=statut)
             statut_menu = ctk.CTkOptionMenu(
-                row, variable=statut_var, values=STATUTS, width=130, height=28,
+                row, variable=statut_var, values=STATUTS, width=108, height=26,
                 fg_color=statut_color, button_color=statut_color,
                 button_hover_color=self._statut_hover(statut_color),
-                text_color="white", font=ctk.CTkFont(size=11, weight="bold")
+                text_color="white", font=ctk.CTkFont(size=11, weight="bold"),
+                dropdown_font=ctk.CTkFont(size=11)
             )
             statut_menu.grid(row=0, column=1, padx=4, pady=6)
 
@@ -1975,20 +1976,15 @@ class App(ctk.CTk):
             )
             lieu_lbl.grid(row=0, column=3, sticky="w", padx=4, pady=6)
 
-            # ── Click sur toute la row + info + lieu → workflow ──
-            # On exclut explicitement la checkbox, le dropdown statut et
-            # le bouton Voir (qui ont leurs propres commands)
-            row.configure(cursor="hand2")
+            # ── Click uniquement entre dropdown statut et bouton Voir ──
+            # (info + lieu seulement, PAS la row entière)
             _click = lambda _e, i=real_i: self._open_candidature_workflow(i)
-            row.bind("<Button-1>", _click)
-            info.bind("<Button-1>", _click)
-            ent_lbl.bind("<Button-1>", _click)
-            poste_lbl.bind("<Button-1>", _click)
-            lieu_lbl.bind("<Button-1>", _click)
-            # Effet hover (changement de fond)
+            for w in (info, ent_lbl, poste_lbl, lieu_lbl):
+                w.bind("<Button-1>", _click)
+            # Effet hover : highlight UNIQUEMENT la zone cliquable
             def _enter(_e, rw=row): rw.configure(fg_color=THEME.bg_hover)
             def _leave(_e, rw=row): rw.configure(fg_color=THEME.bg_panel_alt)
-            for w in (row, info, ent_lbl, poste_lbl, lieu_lbl):
+            for w in (info, ent_lbl, poste_lbl, lieu_lbl):
                 w.bind("<Enter>", _enter, add="+")
                 w.bind("<Leave>", _leave, add="+")
 
@@ -3034,23 +3030,108 @@ class App(ctk.CTk):
         return last_zip
 
     def _prepare_application_folder_bulk(self, container):
-        """Bulk : prépare un ZIP par candidature cochée."""
+        """Bulk : prépare 1 ZIP par candidature cochée. Pour chaque, on
+        génère lettre + mail via l'IA, puis on crée le ZIP avec
+        Lettre.pdf + CV.pdf + mail.txt. Affiche une popup de progression."""
         sel = sorted([k for k, v in (getattr(self, "_tracker_selection", {}) or {}).items()
                       if v.get()])
         if not sel:
             messagebox.showinfo("Information",
                                 "Aucune candidature sélectionnée.")
             return
-        try:
-            last_zip = self._prepare_application_folder(sel)
-            if last_zip:
-                import subprocess
-                subprocess.run(["open", "-R", str(last_zip)])
-                messagebox.showinfo("Dossiers prêts",
-                                    f"{len(sel)} dossier(s) créé(s) dans :\n"
-                                    f"~/Downloads/CandidatureBot/")
-        except Exception as e:
-            messagebox.showerror("Échec", str(e))
+
+        # Popup de progression (modale, non bloquante)
+        prog_win = ctk.CTkToplevel(self)
+        prog_win.title("Préparation des dossiers")
+        prog_win.geometry("420x180")
+        prog_win.transient(self)
+        prog_win.grab_set()
+        prog_win.update_idletasks()
+        px = self.winfo_x() + self.winfo_width() // 2 - 210
+        py = self.winfo_y() + self.winfo_height() // 2 - 90
+        prog_win.geometry(f"+{px}+{py}")
+        ctk.CTkLabel(
+            prog_win, text="Génération des dossiers en cours…",
+            font=ctk.CTkFont(size=14, weight="bold")
+        ).pack(pady=(22, 10))
+        prog_lbl = ctk.CTkLabel(
+            prog_win, text=f"0 / {len(sel)}",
+            text_color=THEME.text_secondary, font=ctk.CTkFont(size=12)
+        )
+        prog_lbl.pack()
+        prog_bar = ctk.CTkProgressBar(
+            prog_win, mode="determinate", height=10, width=340,
+            progress_color=THEME.accent
+        )
+        prog_bar.pack(pady=(12, 0), padx=20)
+        prog_bar.set(0)
+        sub_lbl = ctk.CTkLabel(
+            prog_win, text="", text_color=THEME.text_muted,
+            font=ctk.CTkFont(size=10), wraplength=380, justify="center"
+        )
+        sub_lbl.pack(pady=(8, 0))
+        bring_to_front(prog_win)
+
+        def task():
+            try:
+                from ai_engine import AIEngine
+                engine = AIEngine(config=self.cfg)
+                lettre_override = {}
+                mail_override = {}
+                last_zip = None
+                for n, idx in enumerate(sel, 1):
+                    c = self.cfg["candidatures"][idx]
+                    ent = c.get("entreprise", "?")
+                    self.after(0, lambda n=n, ent=ent: (
+                        prog_lbl.configure(text=f"{n} / {len(sel)}"),
+                        sub_lbl.configure(text=f"Génération pour {ent}…"),
+                        prog_bar.set((n - 1) / max(len(sel), 1)),
+                    ))
+                    # Lettre IA (ton classique par défaut)
+                    try:
+                        lettre = engine.generate_cover_letter(
+                            c, config=self.cfg, tone="classique"
+                        )
+                        lettre_override[idx] = lettre
+                    except Exception as e:
+                        print(f"[bulk-folder] lettre {ent} échec : {e}")
+                    # Mail IA
+                    try:
+                        mail = engine.generate_email(c, config=self.cfg)
+                        mail_override[idx] = mail
+                    except Exception as e:
+                        print(f"[bulk-folder] mail {ent} échec : {e}")
+
+                # Bonus : génère les ZIP au fil de l'eau, pas en bloc
+                last_zip = self._prepare_application_folder(
+                    sel, lettre_override=lettre_override,
+                    mail_override=mail_override
+                )
+
+                def _done():
+                    try:
+                        prog_win.destroy()
+                    except Exception:
+                        pass
+                    if last_zip:
+                        import subprocess
+                        subprocess.run(["open", "-R", str(last_zip)])
+                    messagebox.showinfo(
+                        "Dossiers prêts",
+                        f"{len(sel)} dossier(s) créé(s) dans :\n"
+                        f"~/Downloads/CandidatureBot/\n\n"
+                        f"Chaque ZIP contient : Lettre.pdf · CV.pdf · mail.txt"
+                    )
+                self.after(0, _done)
+            except Exception as e:
+                err = str(e)
+                def _err():
+                    try: prog_win.destroy()
+                    except Exception: pass
+                    messagebox.showerror("Échec", err)
+                self.after(0, _err)
+
+        threading.Thread(target=task, daemon=True).start()
 
     def _send_candidature(self, offre, idx, container):
         """Popup preview → envoyer candidature par mail (legacy, gardé pour bouton 'Mail' éventuel)"""

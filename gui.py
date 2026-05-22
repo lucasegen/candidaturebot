@@ -27,7 +27,7 @@ ICONS = theme
 # En mode source on retombe sur le dossier du projet pour ne pas
 # casser le développement habituel.
 CONFIG_PATH = str(app_paths.config_path())
-APP_VERSION = "1.0.16"
+APP_VERSION = "1.0.17"
 SUPPORT_EMAIL = "candidaturebot.ai@gmail.com"
 
 # 🌐 URL du manifest de mise à jour.
@@ -1951,30 +1951,46 @@ class App(ctk.CTk):
 
             # Col 2 — entreprise / poste (click ouvre workflow)
             info = ctk.CTkFrame(row, fg_color="transparent", cursor="hand2")
-            info.grid(row=0, column=2, sticky="w", padx=4, pady=6)
+            info.grid(row=0, column=2, sticky="ew", padx=4, pady=6)
             ent = c.get('entreprise', '—')
             poste = c.get('poste') or c.get('titre', '—')
-            ctk.CTkLabel(
+            ent_lbl = ctk.CTkLabel(
                 info, text=ent,
                 font=ctk.CTkFont(size=13, weight="bold"),
                 anchor="w", cursor="hand2"
-            ).pack(side="left", padx=(0, 6))
-            ctk.CTkLabel(
+            )
+            ent_lbl.pack(side="left", padx=(0, 6))
+            poste_lbl = ctk.CTkLabel(
                 info, text=f"— {poste}",
                 text_color=THEME.text_secondary, font=ctk.CTkFont(size=12),
                 anchor="w", cursor="hand2"
-            ).pack(side="left")
-            # Bind click sur tout l'info → workflow
-            for w in [info] + list(info.winfo_children()):
-                w.bind("<Button-1>", lambda _e, i=real_i:
-                       self._open_candidature_workflow(i))
+            )
+            poste_lbl.pack(side="left")
 
-            # Col 3 — lieu
-            ctk.CTkLabel(
+            # Col 3 — lieu (cliquable aussi)
+            lieu_lbl = ctk.CTkLabel(
                 row, text=c.get('lieu', '—'),
                 text_color=THEME.text_muted, font=ctk.CTkFont(size=12),
-                anchor="w", width=140
-            ).grid(row=0, column=3, sticky="w", padx=4, pady=6)
+                anchor="w", width=140, cursor="hand2"
+            )
+            lieu_lbl.grid(row=0, column=3, sticky="w", padx=4, pady=6)
+
+            # ── Click sur toute la row + info + lieu → workflow ──
+            # On exclut explicitement la checkbox, le dropdown statut et
+            # le bouton Voir (qui ont leurs propres commands)
+            row.configure(cursor="hand2")
+            _click = lambda _e, i=real_i: self._open_candidature_workflow(i)
+            row.bind("<Button-1>", _click)
+            info.bind("<Button-1>", _click)
+            ent_lbl.bind("<Button-1>", _click)
+            poste_lbl.bind("<Button-1>", _click)
+            lieu_lbl.bind("<Button-1>", _click)
+            # Effet hover (changement de fond)
+            def _enter(_e, rw=row): rw.configure(fg_color=THEME.bg_hover)
+            def _leave(_e, rw=row): rw.configure(fg_color=THEME.bg_panel_alt)
+            for w in (row, info, ent_lbl, poste_lbl, lieu_lbl):
+                w.bind("<Enter>", _enter, add="+")
+                w.bind("<Leave>", _leave, add="+")
 
             # Col 4 — bouton "Voir" (lien direct)
             if c.get("url"):
@@ -2351,25 +2367,17 @@ class App(ctk.CTk):
                         return
                     lettre_box.delete("1.0", "end")
                     lettre_box.insert("1.0", txt)
+                    st["lettre"] = txt
                     status_lbl.configure(text="✓ Généré",
                                          text_color=THEME.green_ok)
                 self.after(0, _apply)
             threading.Thread(target=task, daemon=True).start()
 
-        btns_row = ctk.CTkFrame(wrap, fg_color="transparent")
-        btns_row.pack(fill="x", pady=(6, 0))
-        ctk.CTkButton(
-            btns_row, text="Régénérer",
-            image=theme.ctk_icon(theme.icon_refresh, size=14,
-                                 color=THEME.text_primary),
-            compound="left",
-            command=_regen, height=32, width=130, corner_radius=16,
-            fg_color=THEME.bg_panel, hover_color=THEME.bg_hover,
-            text_color=THEME.text_primary,
-            font=ctk.CTkFont(size=12, weight="bold")
-        ).pack(side="left", padx=(0, 6))
+        # ── Auto-génération à l'ouverture si la lettre est vide ──
+        if not st.get("lettre"):
+            self.after(150, _regen)
 
-        # Footer
+        # ── Footer : Annuler [G] · Régénérer [Centre] · Suivant [D]
         ctk.CTkButton(
             footer, text="Annuler",
             command=lambda: (setattr(self, "_workflow_win", None), win.destroy()),
@@ -2389,6 +2397,18 @@ class App(ctk.CTk):
             fg_color=THEME.accent, hover_color=THEME.accent_hover,
             font=ctk.CTkFont(size=13, weight="bold")
         ).pack(side="right", padx=20, pady=16)
+
+        # Régénérer centré entre Annuler et Suivant (pack avec expand)
+        ctk.CTkButton(
+            footer, text="Régénérer",
+            image=theme.ctk_icon(theme.icon_refresh, size=14,
+                                 color=THEME.text_primary),
+            compound="left",
+            command=_regen, height=36, width=140, corner_radius=18,
+            fg_color=THEME.bg_panel_alt, hover_color=THEME.bg_hover,
+            text_color=THEME.text_primary,
+            font=ctk.CTkFont(size=12, weight="bold")
+        ).pack(expand=True, pady=16)
 
     def _wf_step2_mail(self, body, footer, st, render, win):
         """Étape 2 : mail d'accompagnement."""

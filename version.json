@@ -1,6 +1,6 @@
 {
-  "version": "1.0.16",
-  "url": "https://github.com/lucasegen/candidaturebot/releases/download/v1.0.16/CandidatureBot-1.0.16.zip",
-  "notes": "Refonte complète page Candidatures.\n\n• Vue tableau dense : checkbox · Statut · Entreprise/Poste · Lieu · Lien (plus de Source ni Date ni ⋯)\n• Filtres : recherche texte + statut + lieu\n• Bulk actions : Exporter CSV / Préparer dossiers / Supprimer la sélection\n• Click ligne → workflow fullscreen (taille de l'app)\n• Workflow en 3 étapes : Lettre IA (avec 4 tons : Classique/Dynamique/Créatif/Direct) → Mail → Envoi adaptatif\n• Étape Envoi : 1 clic si email trouvé, 4 méthodes alternatives sinon (Ouvrir l'offre / Préparer dossier ZIP / Copier presse-papier / Saisir email direct)\n• Bouton 'Préparer dossiers' (bulk) : génère 1 ZIP par candidature dans ~/Downloads/CandidatureBot/, ouvre le Finder",
-  "released": "2026-05-21"
+  "version": "1.0.17",
+  "url": "https://github.com/lucasegen/candidaturebot/releases/download/v1.0.17/CandidatureBot-1.0.17.zip",
+  "notes": "3 fixes UX page Candidatures :\n\n• Toute la ligne d'une candidature est cliquable (entreprise/poste/lieu/fond), pas seulement les libellés. Hover change la couleur de fond. Checkbox / dropdown statut / bouton Voir gardent leurs propres actions.\n• La lettre se génère automatiquement à l'ouverture du workflow (étape 1) avec le ton sélectionné — plus besoin de cliquer Régénérer manuellement.\n• Bouton Régénérer déplacé dans le footer, centré entre Annuler (gauche) et Suivant (droite).",
+  "released": "2026-05-22"
 }

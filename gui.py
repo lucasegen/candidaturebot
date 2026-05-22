@@ -27,7 +27,7 @@ ICONS = theme
 # En mode source on retombe sur le dossier du projet pour ne pas
 # casser le développement habituel.
 CONFIG_PATH = str(app_paths.config_path())
-APP_VERSION = "1.0.23"
+APP_VERSION = "1.0.24"
 SUPPORT_EMAIL = "candidaturebot.ai@gmail.com"
 
 # 🌐 URL du manifest de mise à jour.
@@ -96,7 +96,34 @@ DEFAULT_CONFIG = {
         "lettre_text": "",
     },
     "preferences": {},
-    "routine": {},
+    "routine": {
+        "enabled": False,
+        "interval": 6,
+        "unit": "heures",
+        "mots_cles": [],
+        "mots_cles_exclus": [],
+        "localisation": "Paris",
+        "rayon_km": 30,
+        "contrat": "Tous",
+        "teletravail": "Tous",          # Tous / Oui / Hybride / Non
+        "salaire_min": 0,                # k€/an, 0 = pas de filtre
+        "auto_add": True,
+        "auto_pregen": False,            # pré-génère lettre + mail via IA
+        "auto_send": False,              # envoie si email trouvé (DANGER)
+        "notif_macos": True,
+        "notif_son": False,
+        "notif_badge": True,
+        "max_per_run": 50,
+        "daily_quota": 200,
+        "next_run": 0,
+        "history": [],
+        "stats": {
+            "total_found": 0,
+            "total_added": 0,
+            "total_sent": 0,
+            "total_interviews": 0,
+        },
+    },
     "ui": {"last_tab": "search", "tracker_filter": "Tous"},
 }
 
@@ -181,61 +208,99 @@ def open_egg_window(parent):
 class ChipsEditor(ctk.CTkFrame):
     """Éditeur de chips (tags) avec wrap automatique.
 
-    Utilise un Text widget en interne pour bénéficier du wrap natif de Tk
-    (window_create dans un Text wrapped → les chips passent à la ligne tout
-    seuls quand le conteneur est plein).
+    Architecture :
+    • Conteneur transparent (cette classe)
+    • Box scrollable horizontale + wrap pour les chips (Text widget Tk)
+    • Bouton "+ ajouter" sibling SOUS le box, toujours visible → ne se fait
+      jamais clipper quand le wrap dépasse la hauteur réservée.
 
     API :
         editor = ChipsEditor(parent, values=["Python", "Django"],
-                             placeholder="+ ajouter", on_change=callback)
+                             placeholder="+ ajouter", on_change=callback,
+                             chip_color=None  # None = défaut, sinon teinte
+                             )
         editor.get_values() → list[str]
         editor.set_values(values)
+        editor.prompt_add()  # ouvre le dialog d'ajout (callable externe)
     """
     def __init__(self, parent, values=None, placeholder="+ ajouter",
-                 on_change=None, height=80, **kwargs):
-        super().__init__(
-            parent,
+                 on_change=None, height=70, chip_color=None,
+                 chip_text_color=None, **kwargs):
+        # Le frame extérieur est transparent : il regroupe le box + le bouton
+        super().__init__(parent, fg_color="transparent", **kwargs)
+        self._values = list(values or [])
+        self._placeholder = placeholder
+        self._on_change = on_change
+        self._chip_color = chip_color or theme.Colors.bg_panel_alt
+        self._chip_text_color = chip_text_color or theme.Colors.text_primary
+
+        # Box (avec bg + bord) qui contient juste les chips wrappés
+        self._box = ctk.CTkFrame(
+            self,
             fg_color=theme.Colors.bg_panel,
             border_color=theme.Colors.border,
             border_width=1, corner_radius=6,
             height=height,
-            **kwargs
         )
-        self.pack_propagate(False)
-        self._values = list(values or [])
-        self._placeholder = placeholder
-        self._on_change = on_change
+        self._box.pack(fill="x", side="top")
+        self._box.pack_propagate(False)
 
-        # Text widget : wrap natif. On bloque l'input clavier.
         self._txt = tk.Text(
-            self, wrap="word", bd=0, highlightthickness=0,
+            self._box, wrap="word", bd=0, highlightthickness=0,
             bg=theme.Colors.bg_panel, cursor="arrow",
-            font=("Helvetica", 1),  # police minuscule pour minimiser hauteur de ligne
+            font=("Helvetica", 1),
         )
         self._txt.pack(fill="both", expand=True, padx=6, pady=6)
-        # Bloque la saisie clavier (le widget reste utilisable pour embed)
         self._txt.bind("<Key>", lambda e: "break")
         self._txt.bind("<Button-1>", lambda e: "break")
+
+        # Bouton "+ ajouter" SOUS le box, right-aligned, toujours visible.
+        btn_row = ctk.CTkFrame(self, fg_color="transparent")
+        btn_row.pack(fill="x", side="top", pady=(4, 0))
+        self._add_btn = ctk.CTkButton(
+            btn_row, text=self._placeholder,
+            command=self.prompt_add,
+            width=90, height=24, corner_radius=12,
+            fg_color="transparent",
+            border_color=theme.Colors.border, border_width=1,
+            text_color=theme.Colors.text_secondary,
+            hover_color=theme.Colors.bg_panel_alt,
+            font=ctk.CTkFont(size=11),
+        )
+        self._add_btn.pack(side="right")
+
         self._render()
 
     def _render(self):
+        try:
+            if not self._txt.winfo_exists():
+                return
+        except Exception:
+            return
         self._txt.config(state="normal")
         self._txt.delete("1.0", "end")
         for v in self._values:
             chip = self._make_chip(v)
             self._txt.window_create("end", window=chip, padx=2, pady=2)
-        add_btn = self._make_add()
-        self._txt.window_create("end", window=add_btn, padx=2, pady=2)
+        if not self._values:
+            # Placeholder discret quand la liste est vide
+            self._txt.window_create("end",
+                window=ctk.CTkLabel(
+                    self._txt, text="(vide — clique sur " + self._placeholder + ")",
+                    font=ctk.CTkFont(size=11),
+                    fg_color="transparent", text_color=theme.Colors.text_muted,
+                )
+            )
         self._txt.config(state="disabled")
 
     def _make_chip(self, value):
         f = ctk.CTkFrame(
-            self._txt, fg_color=theme.Colors.bg_panel_alt,
+            self._txt, fg_color=self._chip_color,
             corner_radius=10, height=22
         )
         lbl = ctk.CTkLabel(
             f, text=value, font=ctk.CTkFont(size=11),
-            fg_color="transparent", text_color=theme.Colors.text_primary
+            fg_color="transparent", text_color=self._chip_text_color
         )
         lbl.pack(side="left", padx=(9, 4), pady=2)
         x_lbl = ctk.CTkLabel(
@@ -245,40 +310,13 @@ class ChipsEditor(ctk.CTkFrame):
         )
         x_lbl.pack(side="left", padx=(0, 6))
         x_lbl.bind("<Button-1>", lambda e, v=value: self._remove(v))
-        # Hover sur le × pour le faire ressortir
         x_lbl.bind("<Enter>",
                    lambda e, w=x_lbl: w.configure(text_color=theme.Colors.red_danger))
         x_lbl.bind("<Leave>",
                    lambda e, w=x_lbl: w.configure(text_color=theme.Colors.text_muted))
         return f
 
-    def _make_add(self):
-        f = ctk.CTkFrame(
-            self._txt, fg_color="transparent",
-            border_color=theme.Colors.border, border_width=1,
-            corner_radius=10, height=22, cursor="hand2"
-        )
-        lbl = ctk.CTkLabel(
-            f, text=self._placeholder, font=ctk.CTkFont(size=11),
-            fg_color="transparent", text_color=theme.Colors.text_muted
-        )
-        lbl.pack(padx=10, pady=2)
-        f.bind("<Button-1>", self._prompt_add)
-        lbl.bind("<Button-1>", self._prompt_add)
-        # Hover
-        def _hover(_e=None):
-            f.configure(border_color=theme.Colors.accent)
-            lbl.configure(text_color=theme.Colors.accent_hover)
-        def _leave(_e=None):
-            f.configure(border_color=theme.Colors.border)
-            lbl.configure(text_color=theme.Colors.text_muted)
-        f.bind("<Enter>", _hover)
-        f.bind("<Leave>", _leave)
-        lbl.bind("<Enter>", _hover)
-        lbl.bind("<Leave>", _leave)
-        return f
-
-    def _prompt_add(self, event=None):
+    def prompt_add(self, event=None):
         val = simpledialog.askstring(
             "Ajouter", "Nouvelle valeur :",
             parent=self.winfo_toplevel()
@@ -3604,11 +3642,8 @@ class App(ctk.CTk):
         self._remember_tab("routine")
         self._clear_main()
 
-        # IMPORTANT : setdefault (pas get) sinon les "héritages" depuis
-        # la recherche manuelle ne sont jamais persistés dans cfg.
+        # Setdefault pour persister les héritages au premier passage
         routine = self.cfg.setdefault("routine", {})
-        # Par défaut, on hérite des params de la recherche automatique
-        # pour les champs qui n'ont jamais été configurés dans la routine.
         rech = self.cfg.get("recherche", {}) or {}
         if "mots_cles" not in routine:
             routine["mots_cles"] = list(rech.get("mots_cles", []) or [])
@@ -3618,196 +3653,631 @@ class App(ctk.CTk):
             routine["rayon_km"] = rech.get("rayon_km", 30)
         if "contrat" not in routine:
             routine["contrat"] = rech.get("contrat", "Tous")
+        # Stats / nouveaux champs : on garantit qu'ils existent
+        routine.setdefault("mots_cles_exclus", [])
+        routine.setdefault("teletravail", "Tous")
+        routine.setdefault("salaire_min", 0)
+        routine.setdefault("auto_pregen", False)
+        routine.setdefault("auto_send", False)
+        routine.setdefault("notif_macos", True)
+        routine.setdefault("notif_son", False)
+        routine.setdefault("notif_badge", True)
+        routine.setdefault("max_per_run", 50)
+        routine.setdefault("daily_quota", 200)
+        routine.setdefault("stats", {"total_found": 0, "total_added": 0,
+                                       "total_sent": 0, "total_interviews": 0})
 
+        # ── Header ──
+        head = ctk.CTkFrame(self.main, fg_color="transparent")
+        head.pack(fill="x", pady=(0, 8))
         ctk.CTkLabel(
-            self.main, text="ROUTINE — RECHERCHES AUTOMATIQUES",
-            font=ctk.CTkFont(size=20, weight="bold")
-        ).pack(anchor="w", pady=(0, 4))
-        ctk.CTkLabel(
-            self.main,
-            text="Active une recherche récurrente en arrière-plan.\n"
-                 "Tant que l'app est ouverte, elle se déclenche à la fréquence choisie.",
-            text_color="gray", justify="left"
-        ).pack(anchor="w", pady=(0, 14))
-
-        # ── Activation ─────────────────────────────────────────
-        switch_frame = ctk.CTkFrame(self.main, fg_color=THEME.bg_panel_alt, corner_radius=10)
-        switch_frame.pack(fill="x", pady=(0, 12))
-
-        self.routine_enabled_var = ctk.BooleanVar(value=routine.get("enabled", False))
-        ctk.CTkSwitch(
-            switch_frame,
-            text="Routine active",
-            variable=self.routine_enabled_var,
-            command=self._on_routine_toggle,
-            font=ctk.CTkFont(size=13, weight="bold")
-        ).pack(side="left", padx=15, pady=12)
-
-        self.routine_next_label = ctk.CTkLabel(
-            switch_frame, text=self._routine_next_text(),
-            text_color="gray", font=ctk.CTkFont(size=12)
-        )
-        self.routine_next_label.pack(side="right", padx=15, pady=12)
-
-        # ── Fréquence ──────────────────────────────────────────
-        freq_frame = ctk.CTkFrame(self.main, fg_color=THEME.bg_panel_alt, corner_radius=10)
-        freq_frame.pack(fill="x", pady=(0, 12))
-
-        ctk.CTkLabel(
-            freq_frame, text="FRÉQUENCE",
-            font=ctk.CTkFont(size=13, weight="bold")
-        ).pack(anchor="w", padx=15, pady=(10, 2))
-
-        freq_row = ctk.CTkFrame(freq_frame, fg_color="transparent")
-        freq_row.pack(fill="x", padx=15, pady=(0, 12))
-
-        self.routine_interval_var = ctk.StringVar(
-            value=str(routine.get("interval", 6))
-        )
-        ctk.CTkLabel(freq_row, text="Toutes les").pack(side="left", padx=(0, 6))
-        interval_entry = ctk.CTkEntry(
-            freq_row, textvariable=self.routine_interval_var,
-            width=60, height=30
-        )
-        interval_entry.pack(side="left", padx=(0, 6))
-        interval_entry.bind("<FocusOut>", self._save_routine_silent)
-        interval_entry.bind("<Return>", self._save_routine_silent)
-
-        self.routine_unit_var = ctk.StringVar(value=routine.get("unit", "heures"))
-        ctk.CTkOptionMenu(
-            freq_row, variable=self.routine_unit_var,
-            values=["minutes", "heures", "jours"],
-            width=110, height=30,
-            command=lambda _v: self._save_routine_silent()
+            head, text="Routine",
+            font=ctk.CTkFont(size=20, weight="bold"),
+            text_color=THEME.text_primary
         ).pack(side="left")
-
-        # ── Critères de recherche ──────────────────────────────
-        crit_frame = ctk.CTkFrame(self.main, fg_color=THEME.bg_panel_alt, corner_radius=10)
-        crit_frame.pack(fill="x", pady=(0, 12))
-
         ctk.CTkLabel(
-            crit_frame, text="CRITÈRES (INDÉPENDANTS DE LA RECHERCHE MANUELLE)",
-            font=ctk.CTkFont(size=13, weight="bold")
-        ).pack(anchor="w", padx=15, pady=(10, 2))
+            head, text="Recherches automatiques en arrière-plan.",
+            font=ctk.CTkFont(size=12),
+            text_color=THEME.text_muted
+        ).pack(side="left", padx=(12, 0), pady=(4, 0))
 
-        row1 = ctk.CTkFrame(crit_frame, fg_color="transparent")
-        row1.pack(fill="x", padx=15, pady=(4, 4))
-        ctk.CTkLabel(row1, text="Mots-clés :", width=90, anchor="w").pack(side="left")
-        self.routine_kw_entry = ctk.CTkEntry(row1, height=30)
-        self.routine_kw_entry.insert(0, ", ".join(routine.get("mots_cles", [])))
-        self.routine_kw_entry.pack(side="left", fill="x", expand=True, padx=(5, 0))
-        self.routine_kw_entry.bind("<FocusOut>", self._save_routine_silent)
-        self.routine_kw_entry.bind("<Return>", self._save_routine_silent)
+        # ── Hero status card ──
+        self._build_routine_hero(self.main, routine)
 
-        row2 = ctk.CTkFrame(crit_frame, fg_color="transparent")
-        row2.pack(fill="x", padx=15, pady=(4, 4))
-        ctk.CTkLabel(row2, text="Lieu :", width=90, anchor="w").pack(side="left")
-        self.routine_loc_entry = ctk.CTkEntry(row2, width=200, height=30)
-        self.routine_loc_entry.insert(0, routine.get("localisation", "Paris"))
-        self.routine_loc_entry.pack(side="left", padx=(5, 15))
-        self.routine_loc_entry.bind("<FocusOut>", self._save_routine_silent)
-        self.routine_loc_entry.bind("<Return>", self._save_routine_silent)
-        ctk.CTkLabel(row2, text="Rayon (km) :", width=90, anchor="w").pack(side="left")
-        self.routine_km_entry = ctk.CTkEntry(row2, width=70, height=30)
-        self.routine_km_entry.insert(0, str(routine.get("rayon_km", 30)))
-        self.routine_km_entry.pack(side="left", padx=(5, 0))
-        self.routine_km_entry.bind("<FocusOut>", self._save_routine_silent)
-        self.routine_km_entry.bind("<Return>", self._save_routine_silent)
+        # ── Body : 2 colonnes scrollables ──
+        body = ctk.CTkScrollableFrame(self.main, fg_color="transparent")
+        body.pack(fill="both", expand=True, pady=(12, 0))
+        body.grid_columnconfigure(0, weight=1, uniform="col")
+        body.grid_columnconfigure(1, weight=1, uniform="col")
 
-        row3 = ctk.CTkFrame(crit_frame, fg_color="transparent")
-        row3.pack(fill="x", padx=15, pady=(4, 12))
-        ctk.CTkLabel(row3, text="Contrat :", width=90, anchor="w").pack(side="left")
-        self.routine_contrat_var = ctk.StringVar(
-            value=routine.get("contrat", "Tous")
-        )
-        ctk.CTkOptionMenu(
-            row3, variable=self.routine_contrat_var,
-            values=["Tous", "CDI", "CDD", "Stage", "Alternance", "Freelance"],
-            width=140, height=30,
-            command=lambda _v: self._save_routine_silent()
-        ).pack(side="left", padx=(5, 0))
+        left = ctk.CTkFrame(body, fg_color="transparent")
+        left.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
+        self._build_routine_freq(left, routine)
+        self._build_routine_criteres(left, routine)
 
-        # ── Options d'ajout automatique ───────────────────────
-        opt_frame = ctk.CTkFrame(self.main, fg_color=THEME.bg_panel_alt, corner_radius=10)
-        opt_frame.pack(fill="x", pady=(0, 12))
+        right = ctk.CTkFrame(body, fg_color="transparent")
+        right.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
+        self._build_routine_automation(right, routine)
+        self._build_routine_notifs(right, routine)
+        self._build_routine_limits(right, routine)
 
+        # Historique sur toute la largeur
+        self._build_routine_history(body, routine)
+
+        # Footer
+        footer = ctk.CTkFrame(self.main, fg_color="transparent")
+        footer.pack(fill="x", pady=(12, 0))
         ctk.CTkLabel(
-            opt_frame, text="AUTOMATISATION",
-            font=ctk.CTkFont(size=13, weight="bold")
-        ).pack(anchor="w", padx=15, pady=(10, 2))
-
-        self.routine_auto_add_var = ctk.BooleanVar(
-            value=routine.get("auto_add", False)
-        )
-        ctk.CTkCheckBox(
-            opt_frame,
-            text="Ajouter automatiquement les nouvelles offres aux candidatures",
-            variable=self.routine_auto_add_var,
-            command=self._save_routine_silent
-        ).pack(anchor="w", padx=15, pady=(4, 10))
-
-        # ── Historique ────────────────────────────────────────
-        hist_frame = ctk.CTkFrame(self.main, fg_color=THEME.bg_panel_alt, corner_radius=10)
-        hist_frame.pack(fill="both", expand=True, pady=(0, 12))
-
-        ctk.CTkLabel(
-            hist_frame, text="DERNIÈRES EXÉCUTIONS",
-            font=ctk.CTkFont(size=13, weight="bold")
-        ).pack(anchor="w", padx=15, pady=(10, 4))
-
-        hist_box = ctk.CTkScrollableFrame(hist_frame, height=130, fg_color="transparent")
-        hist_box.pack(fill="both", expand=True, padx=10, pady=(0, 10))
-        hist = routine.get("history", []) or []
-        if not hist:
-            ctk.CTkLabel(
-                hist_box, text="Aucune exécution pour l'instant.",
-                text_color="gray"
-            ).pack(anchor="w", padx=5, pady=5)
-        for entry in hist[-20:][::-1]:
-            ctk.CTkLabel(
-                hist_box,
-                text=f"• {entry.get('ts','?')} — {entry.get('found',0)} offre(s), "
-                     f"{entry.get('added',0)} ajoutée(s)",
-                text_color="gray", font=ctk.CTkFont(size=11)
-            ).pack(anchor="w", padx=5, pady=1)
-
-        # ── Boutons ────────────────────────────────────────────
-        # Petit indicateur d'auto-save : la routine se persiste en
-        # silence sur changement de champ ; le bouton ci-dessous est
-        # juste un confirmateur explicite (popup de validation).
-        info_row = ctk.CTkFrame(self.main, fg_color="transparent")
-        info_row.pack(fill="x", pady=(0, 4))
-        ctk.CTkLabel(
-            info_row,
-            text="✓ Les modifications sont sauvegardées automatiquement",
-            text_color="gray", font=ctk.CTkFont(size=11)
+            footer,
+            text="Toutes les modifications sont auto-sauvegardées.",
+            font=ctk.CTkFont(size=11),
+            text_color=THEME.text_muted
         ).pack(side="left")
         self.routine_save_status = ctk.CTkLabel(
-            info_row, text="", text_color=THEME.green_ok,
-            font=ctk.CTkFont(size=11, weight="bold")
+            footer, text="", font=ctk.CTkFont(size=11, weight="bold"),
+            text_color=THEME.green_ok
         )
         self.routine_save_status.pack(side="right")
 
-        btn_row = ctk.CTkFrame(self.main, fg_color="transparent")
-        btn_row.pack(fill="x", pady=(0, 8))
+    # ── Helpers Routine ─────────────────────────────────────────
+    def _routine_stats_aggregate(self, routine):
+        """Calcule les stats globales en combinant routine.stats et candidatures."""
+        stats = routine.get("stats", {}) or {}
+        cands = self.cfg.get("candidatures", []) or []
+        # Entretiens = compte des candidatures en statut "Entretien"
+        n_interviews = sum(1 for c in cands if c.get("statut") == "Entretien")
+        n_sent = sum(1 for c in cands if c.get("statut") in ("Envoyée", "Relancée",
+                                                              "Entretien", "Acceptée"))
+        return {
+            "found":     int(stats.get("total_found", 0)),
+            "added":     int(stats.get("total_added", 0)),
+            "sent":      n_sent,
+            "interviews": n_interviews,
+        }
 
-        ctk.CTkButton(
-            btn_row, text="Sauvegarder",
-            command=self._save_routine, height=42,
-            fg_color=THEME.accent, hover_color=THEME.accent_hover,
-            font=ctk.CTkFont(size=14, weight="bold")
-        ).pack(side="left", expand=True, fill="x", padx=(0, 5))
+    def _build_routine_hero(self, parent, routine):
+        enabled = bool(routine.get("enabled", False))
+        accent = THEME.accent if enabled else THEME.text_muted
 
+        # Card avec léger gradient simulé via bg_panel_alt + bord coloré
+        hero = ctk.CTkFrame(
+            parent, fg_color=THEME.bg_panel,
+            border_color=(THEME.accent if enabled else THEME.border),
+            border_width=2, corner_radius=12
+        )
+        hero.pack(fill="x")
+        hero.grid_columnconfigure(1, weight=1)
+
+        # Icône grosse "R"
+        icon = ctk.CTkFrame(
+            hero, width=56, height=56,
+            fg_color=accent, corner_radius=28
+        )
+        icon.grid(row=0, column=0, padx=(18, 14), pady=14)
+        icon.grid_propagate(False)
+        ctk.CTkLabel(
+            icon, text="R", font=ctk.CTkFont(size=22, weight="bold"),
+            text_color="white"
+        ).place(relx=0.5, rely=0.5, anchor="center")
+
+        # Info centre
+        info = ctk.CTkFrame(hero, fg_color="transparent")
+        info.grid(row=0, column=1, sticky="ew", pady=14)
+
+        title_row = ctk.CTkFrame(info, fg_color="transparent")
+        title_row.pack(anchor="w")
+        ctk.CTkLabel(
+            title_row, text="Routine",
+            font=ctk.CTkFont(size=16, weight="bold"),
+            text_color=THEME.text_primary
+        ).pack(side="left")
+        badge_bg = THEME.green_ok if enabled else THEME.text_muted
+        badge = ctk.CTkFrame(title_row, fg_color=badge_bg, corner_radius=4)
+        badge.pack(side="left", padx=(10, 0))
+        ctk.CTkLabel(
+            badge, text=("EN MARCHE" if enabled else "ARRÊTÉE"),
+            font=ctk.CTkFont(size=10, weight="bold"),
+            text_color=("#0f0f12" if enabled else "#e8e8e8")
+        ).pack(padx=8, pady=2)
+
+        next_txt = self._routine_next_text()
+        interval = routine.get("interval", 6)
+        unit = routine.get("unit", "heures")
+        ctk.CTkLabel(
+            info, text=f"{next_txt}  ·  toutes les {interval} {unit}",
+            font=ctk.CTkFont(size=12),
+            text_color=THEME.text_secondary, anchor="w"
+        ).pack(anchor="w", pady=(2, 6))
+        self.routine_next_label = info.winfo_children()[-1]  # ref pour update
+
+        # Compteurs stats
+        stats = self._routine_stats_aggregate(routine)
+        meta_row = ctk.CTkFrame(info, fg_color="transparent")
+        meta_row.pack(anchor="w")
+        for label, value, color in [
+            ("trouvées", stats["found"], THEME.text_primary),
+            ("ajoutées", stats["added"], THEME.text_primary),
+            ("envoyées", stats["sent"], THEME.text_primary),
+            ("entretiens", stats["interviews"], THEME.green_ok),
+        ]:
+            blk = ctk.CTkFrame(meta_row, fg_color="transparent")
+            blk.pack(side="left", padx=(0, 18))
+            ctk.CTkLabel(
+                blk, text=str(value), font=ctk.CTkFont(size=15, weight="bold"),
+                text_color=color
+            ).pack(anchor="w")
+            ctk.CTkLabel(
+                blk, text=label, font=ctk.CTkFont(size=10),
+                text_color=THEME.text_muted
+            ).pack(anchor="w")
+
+        # Actions à droite : switch + bouton
+        actions = ctk.CTkFrame(hero, fg_color="transparent")
+        actions.grid(row=0, column=2, padx=(0, 18), pady=14, sticky="e")
+        self.routine_enabled_var = ctk.BooleanVar(value=enabled)
+        ctk.CTkSwitch(
+            actions, text="", width=50,
+            variable=self.routine_enabled_var,
+            command=self._on_routine_toggle,
+            progress_color=THEME.accent,
+        ).pack(anchor="e")
         ctk.CTkButton(
-            btn_row, text="Lancer maintenant",
+            actions, text="Lancer maintenant",
             command=lambda: threading.Thread(
                 target=lambda: self._run_routine_search(manual=True),
                 daemon=True
             ).start(),
-            height=42, fg_color=THEME.bg_panel_alt, hover_color=THEME.bg_hover,
+            height=28, width=140, corner_radius=14,
+            fg_color=THEME.bg_panel_alt, hover_color=THEME.bg_hover,
             text_color=THEME.text_primary,
-            font=ctk.CTkFont(size=14, weight="bold")
-        ).pack(side="left", padx=(5, 0))
+            font=ctk.CTkFont(size=11)
+        ).pack(anchor="e", pady=(8, 0))
+
+    def _routine_card(self, parent, title, tag=None):
+        """Crée une card standard avec titre. Renvoie la zone de contenu."""
+        card = ctk.CTkFrame(
+            parent, fg_color=THEME.bg_panel,
+            border_color=THEME.border, border_width=1, corner_radius=8
+        )
+        card.pack(fill="x", pady=(0, 12))
+        head = ctk.CTkFrame(card, fg_color="transparent")
+        head.pack(fill="x", padx=14, pady=(12, 6))
+        ctk.CTkLabel(
+            head, text=title.upper(),
+            font=ctk.CTkFont(size=11, weight="bold"),
+            text_color=THEME.text_secondary
+        ).pack(side="left")
+        if tag:
+            ctk.CTkLabel(
+                head, text=tag, font=ctk.CTkFont(size=9, weight="bold"),
+                text_color="#0f0f12", fg_color=THEME.green_ok,
+                corner_radius=3, padx=5, pady=1
+            ).pack(side="left", padx=(8, 0))
+        body = ctk.CTkFrame(card, fg_color="transparent")
+        body.pack(fill="x", padx=14, pady=(0, 12))
+        return body
+
+    def _build_routine_freq(self, parent, routine):
+        body = self._routine_card(parent, "Fréquence")
+
+        # Presets : 1h / 3h / 6h / 12h
+        current_interval = int(routine.get("interval", 6) or 6)
+        current_unit = routine.get("unit", "heures")
+
+        presets_row = ctk.CTkFrame(body, fg_color="transparent")
+        presets_row.pack(fill="x", pady=(0, 8))
+        presets_row.grid_columnconfigure((0, 1, 2, 3), weight=1)
+
+        self._routine_preset_buttons = {}
+        presets = [(1, "heures"), (3, "heures"), (6, "heures"), (12, "heures")]
+        for i, (val, unit) in enumerate(presets):
+            is_active = (current_interval == val and current_unit == unit)
+            btn = ctk.CTkButton(
+                presets_row, text=f"{val} h",
+                command=lambda v=val, u=unit: self._set_freq_preset(v, u),
+                height=28, corner_radius=4,
+                fg_color=(THEME.accent if is_active else THEME.bg_panel_alt),
+                hover_color=(THEME.accent_hover if is_active else THEME.bg_hover),
+                text_color=("white" if is_active else THEME.text_secondary),
+                font=ctk.CTkFont(size=11,
+                                  weight=("bold" if is_active else "normal")),
+            )
+            btn.grid(row=0, column=i, padx=2, sticky="ew")
+            self._routine_preset_buttons[(val, unit)] = btn
+
+        # Custom
+        custom_row = ctk.CTkFrame(body, fg_color="transparent")
+        custom_row.pack(fill="x")
+        ctk.CTkLabel(
+            custom_row, text="ou personnalisé :",
+            font=ctk.CTkFont(size=11), text_color=THEME.text_muted
+        ).pack(side="left", padx=(0, 6))
+        self.routine_interval_var = ctk.StringVar(value=str(current_interval))
+        interval_entry = ctk.CTkEntry(
+            custom_row, textvariable=self.routine_interval_var,
+            width=50, height=26, font=ctk.CTkFont(size=11)
+        )
+        interval_entry.pack(side="left", padx=(0, 6))
+        interval_entry.bind("<FocusOut>", self._save_routine_silent)
+        interval_entry.bind("<Return>", self._save_routine_silent)
+        self.routine_unit_var = ctk.StringVar(value=current_unit)
+        ctk.CTkOptionMenu(
+            custom_row, variable=self.routine_unit_var,
+            values=["minutes", "heures", "jours"],
+            width=100, height=26, font=ctk.CTkFont(size=11),
+            command=lambda _v: self._save_routine_silent()
+        ).pack(side="left")
+
+    def _set_freq_preset(self, val, unit):
+        self.routine_interval_var.set(str(val))
+        self.routine_unit_var.set(unit)
+        self._save_routine_silent()
+        # Refresh visuel des presets sans rebuild la page entière
+        for (v, u), btn in self._routine_preset_buttons.items():
+            is_active = (v == val and u == unit)
+            btn.configure(
+                fg_color=(THEME.accent if is_active else THEME.bg_panel_alt),
+                hover_color=(THEME.accent_hover if is_active else THEME.bg_hover),
+                text_color=("white" if is_active else THEME.text_secondary),
+                font=ctk.CTkFont(size=11,
+                                  weight=("bold" if is_active else "normal")),
+            )
+
+    def _build_routine_criteres(self, parent, routine):
+        body = self._routine_card(parent, "Critères")
+
+        # Mots-clés (chips)
+        ctk.CTkLabel(
+            body, text="Mots-clés", font=ctk.CTkFont(size=11),
+            text_color=THEME.text_secondary, anchor="w"
+        ).pack(anchor="w", pady=(0, 4))
+        self.routine_kw_chips = ChipsEditor(
+            body,
+            values=routine.get("mots_cles", []),
+            placeholder="+ ajouter",
+            height=60,
+            on_change=lambda _vs: self._save_routine_silent()
+        )
+        self.routine_kw_chips.pack(fill="x", pady=(0, 10))
+
+        # Mots-clés exclus (chips rouges)
+        excl_label_row = ctk.CTkFrame(body, fg_color="transparent")
+        excl_label_row.pack(fill="x", pady=(0, 4))
+        ctk.CTkLabel(
+            excl_label_row, text="Mots-clés EXCLUS",
+            font=ctk.CTkFont(size=11),
+            text_color=THEME.text_secondary
+        ).pack(side="left")
+        ctk.CTkLabel(
+            excl_label_row, text="anti-stage / anti-alternance / etc.",
+            font=ctk.CTkFont(size=10),
+            text_color=THEME.text_muted
+        ).pack(side="left", padx=(8, 0))
+        self.routine_kw_excl_chips = ChipsEditor(
+            body,
+            values=routine.get("mots_cles_exclus", []),
+            placeholder="+ exclure",
+            height=50,
+            chip_color="#3a1f1f",                 # tinted red
+            chip_text_color=THEME.red_hover,
+            on_change=lambda _vs: self._save_routine_silent()
+        )
+        self.routine_kw_excl_chips.pack(fill="x", pady=(0, 10))
+
+        # Lieu / Rayon
+        loc_row = ctk.CTkFrame(body, fg_color="transparent")
+        loc_row.pack(fill="x", pady=2)
+        ctk.CTkLabel(
+            loc_row, text="Lieu", font=ctk.CTkFont(size=11),
+            text_color=THEME.text_secondary, width=80, anchor="w"
+        ).pack(side="left")
+        self.routine_loc_entry = ctk.CTkEntry(
+            loc_row, height=28, font=ctk.CTkFont(size=11)
+        )
+        self.routine_loc_entry.insert(0, routine.get("localisation", ""))
+        self.routine_loc_entry.pack(side="left", fill="x", expand=True)
+        self.routine_loc_entry.bind("<FocusOut>", self._save_routine_silent)
+        self.routine_loc_entry.bind("<Return>", self._save_routine_silent)
+
+        km_row = ctk.CTkFrame(body, fg_color="transparent")
+        km_row.pack(fill="x", pady=2)
+        ctk.CTkLabel(
+            km_row, text="Rayon", font=ctk.CTkFont(size=11),
+            text_color=THEME.text_secondary, width=80, anchor="w"
+        ).pack(side="left")
+        self.routine_km_entry = ctk.CTkEntry(
+            km_row, height=28, width=70, font=ctk.CTkFont(size=11)
+        )
+        self.routine_km_entry.insert(0, str(routine.get("rayon_km", 30)))
+        self.routine_km_entry.pack(side="left", padx=(0, 4))
+        self.routine_km_entry.bind("<FocusOut>", self._save_routine_silent)
+        self.routine_km_entry.bind("<Return>", self._save_routine_silent)
+        ctk.CTkLabel(
+            km_row, text="km", font=ctk.CTkFont(size=10),
+            text_color=THEME.text_muted
+        ).pack(side="left")
+
+        # Contrat
+        c_row = ctk.CTkFrame(body, fg_color="transparent")
+        c_row.pack(fill="x", pady=2)
+        ctk.CTkLabel(
+            c_row, text="Contrat", font=ctk.CTkFont(size=11),
+            text_color=THEME.text_secondary, width=80, anchor="w"
+        ).pack(side="left")
+        self.routine_contrat_var = ctk.StringVar(
+            value=routine.get("contrat", "Tous")
+        )
+        ctk.CTkOptionMenu(
+            c_row, variable=self.routine_contrat_var,
+            values=["Tous", "CDI", "CDD", "Stage", "Alternance", "Freelance"],
+            width=150, height=28, font=ctk.CTkFont(size=11),
+            fg_color=THEME.bg_panel_alt,
+            button_color=THEME.bg_hover,
+            button_hover_color=THEME.accent,
+            command=lambda _v: self._save_routine_silent()
+        ).pack(side="left")
+
+        # Télétravail
+        tt_row = ctk.CTkFrame(body, fg_color="transparent")
+        tt_row.pack(fill="x", pady=2)
+        ctk.CTkLabel(
+            tt_row, text="Télétravail", font=ctk.CTkFont(size=11),
+            text_color=THEME.text_secondary, width=80, anchor="w"
+        ).pack(side="left")
+        self.routine_tt_var = ctk.StringVar(
+            value=routine.get("teletravail", "Tous")
+        )
+        ctk.CTkOptionMenu(
+            tt_row, variable=self.routine_tt_var,
+            values=["Tous", "Oui", "Hybride", "Non"],
+            width=150, height=28, font=ctk.CTkFont(size=11),
+            fg_color=THEME.bg_panel_alt,
+            button_color=THEME.bg_hover,
+            button_hover_color=THEME.accent,
+            command=lambda _v: self._save_routine_silent()
+        ).pack(side="left")
+
+        # Salaire min
+        s_row = ctk.CTkFrame(body, fg_color="transparent")
+        s_row.pack(fill="x", pady=2)
+        ctk.CTkLabel(
+            s_row, text="Salaire min", font=ctk.CTkFont(size=11),
+            text_color=THEME.text_secondary, width=80, anchor="w"
+        ).pack(side="left")
+        self.routine_sal_entry = ctk.CTkEntry(
+            s_row, height=28, width=70, font=ctk.CTkFont(size=11)
+        )
+        self.routine_sal_entry.insert(0, str(routine.get("salaire_min", 0)))
+        self.routine_sal_entry.pack(side="left", padx=(0, 4))
+        self.routine_sal_entry.bind("<FocusOut>", self._save_routine_silent)
+        self.routine_sal_entry.bind("<Return>", self._save_routine_silent)
+        ctk.CTkLabel(
+            s_row, text="k€/an  (0 = pas de filtre)",
+            font=ctk.CTkFont(size=10), text_color=THEME.text_muted
+        ).pack(side="left")
+
+    def _toggle_row(self, parent, label, sub, var, danger=False):
+        """Une ligne switch + label + description courte."""
+        row = ctk.CTkFrame(parent, fg_color="transparent")
+        row.pack(fill="x", pady=6)
+        sw = ctk.CTkSwitch(
+            row, text="", width=44, variable=var,
+            command=self._save_routine_silent,
+            progress_color=(THEME.red_danger if danger else THEME.accent),
+        )
+        sw.pack(side="left", padx=(0, 10))
+        txt = ctk.CTkFrame(row, fg_color="transparent")
+        txt.pack(side="left", fill="x", expand=True)
+        ctk.CTkLabel(
+            txt, text=label, font=ctk.CTkFont(size=12, weight="bold"),
+            text_color=THEME.text_primary, anchor="w"
+        ).pack(anchor="w")
+        ctk.CTkLabel(
+            txt, text=sub, font=ctk.CTkFont(size=10),
+            text_color=(THEME.amber if danger else THEME.text_muted),
+            anchor="w", justify="left", wraplength=280
+        ).pack(anchor="w")
+
+    def _build_routine_automation(self, parent, routine):
+        body = self._routine_card(parent, "Automatisation")
+
+        self.routine_auto_add_var = ctk.BooleanVar(value=routine.get("auto_add", True))
+        self._toggle_row(
+            body, "Ajouter aux candidatures",
+            "Les nouvelles offres apparaissent dans l'onglet Candidatures.",
+            self.routine_auto_add_var
+        )
+
+        self.routine_auto_pregen_var = ctk.BooleanVar(value=routine.get("auto_pregen", False))
+        self._toggle_row(
+            body, "Pré-générer lettre + mail",
+            "L'IA prépare les documents en arrière-plan pour chaque nouvelle offre.",
+            self.routine_auto_pregen_var
+        )
+
+        self.routine_auto_send_var = ctk.BooleanVar(value=routine.get("auto_send", False))
+        self._toggle_row(
+            body, "Envoi auto si email trouvé",
+            "DANGER : un robot envoie en ton nom. Active uniquement si tu sais ce que tu fais.",
+            self.routine_auto_send_var, danger=True
+        )
+
+    def _build_routine_notifs(self, parent, routine):
+        body = self._routine_card(parent, "Notifications")
+        self.routine_notif_macos_var = ctk.BooleanVar(value=routine.get("notif_macos", True))
+        self._toggle_row(
+            body, "Notification macOS",
+            "Centre de notifications quand de nouvelles offres sont trouvées.",
+            self.routine_notif_macos_var
+        )
+        self.routine_notif_son_var = ctk.BooleanVar(value=routine.get("notif_son", False))
+        self._toggle_row(
+            body, "Son d'alerte",
+            "Petit bip si > 5 offres en un run.",
+            self.routine_notif_son_var
+        )
+        self.routine_notif_badge_var = ctk.BooleanVar(value=routine.get("notif_badge", True))
+        self._toggle_row(
+            body, "Badge sidebar",
+            "Compteur d'offres non vues sur l'onglet Candidatures.",
+            self.routine_notif_badge_var
+        )
+
+    def _build_routine_limits(self, parent, routine):
+        body = self._routine_card(parent, "Limites — anti-spam")
+
+        mr_row = ctk.CTkFrame(body, fg_color="transparent")
+        mr_row.pack(fill="x", pady=4)
+        ctk.CTkLabel(
+            mr_row, text="Max par run", font=ctk.CTkFont(size=11),
+            text_color=THEME.text_secondary, width=110, anchor="w"
+        ).pack(side="left")
+        self.routine_max_run_entry = ctk.CTkEntry(
+            mr_row, height=28, width=70, font=ctk.CTkFont(size=11)
+        )
+        self.routine_max_run_entry.insert(0, str(routine.get("max_per_run", 50)))
+        self.routine_max_run_entry.pack(side="left", padx=(0, 4))
+        self.routine_max_run_entry.bind("<FocusOut>", self._save_routine_silent)
+        self.routine_max_run_entry.bind("<Return>", self._save_routine_silent)
+        ctk.CTkLabel(
+            mr_row, text="offres", font=ctk.CTkFont(size=10),
+            text_color=THEME.text_muted
+        ).pack(side="left")
+
+        dq_row = ctk.CTkFrame(body, fg_color="transparent")
+        dq_row.pack(fill="x", pady=4)
+        ctk.CTkLabel(
+            dq_row, text="Quota / jour", font=ctk.CTkFont(size=11),
+            text_color=THEME.text_secondary, width=110, anchor="w"
+        ).pack(side="left")
+        self.routine_quota_entry = ctk.CTkEntry(
+            dq_row, height=28, width=70, font=ctk.CTkFont(size=11)
+        )
+        self.routine_quota_entry.insert(0, str(routine.get("daily_quota", 200)))
+        self.routine_quota_entry.pack(side="left", padx=(0, 4))
+        self.routine_quota_entry.bind("<FocusOut>", self._save_routine_silent)
+        self.routine_quota_entry.bind("<Return>", self._save_routine_silent)
+        ctk.CTkLabel(
+            dq_row, text="offres (pause auto si dépassé)",
+            font=ctk.CTkFont(size=10), text_color=THEME.text_muted
+        ).pack(side="left")
+
+    def _build_routine_history(self, parent, routine):
+        # Carde plein largeur (span sur les 2 colonnes du grid parent)
+        card = ctk.CTkFrame(
+            parent, fg_color=THEME.bg_panel,
+            border_color=THEME.border, border_width=1, corner_radius=8
+        )
+        card.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(0, 12))
+
+        head = ctk.CTkFrame(card, fg_color="transparent")
+        head.pack(fill="x", padx=14, pady=(12, 6))
+        ctk.CTkLabel(
+            head, text="ACTIVITÉ DES 30 DERNIERS RUNS",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            text_color=THEME.text_secondary
+        ).pack(side="left")
+        hist = routine.get("history", []) or []
+        if hist:
+            avg = sum(h.get("found", 0) for h in hist) / max(1, len(hist))
+            ctk.CTkLabel(
+                head, text=f"moyenne {avg:.1f} offres/run",
+                font=ctk.CTkFont(size=10), text_color=THEME.text_muted
+            ).pack(side="right")
+
+        # Sparkline
+        self._routine_sparkline_widget(card, hist, count=30, height=42)
+
+        # Détails (5 derniers)
+        details = ctk.CTkFrame(card, fg_color="transparent")
+        details.pack(fill="x", padx=14, pady=(8, 12))
+        if not hist:
+            ctk.CTkLabel(
+                details, text="Aucune exécution pour l'instant.",
+                font=ctk.CTkFont(size=11),
+                text_color=THEME.text_muted
+            ).pack(anchor="w")
+        for entry in hist[-8:][::-1]:
+            row = ctk.CTkFrame(details, fg_color=THEME.bg_panel_alt,
+                                corner_radius=4)
+            row.pack(fill="x", pady=2)
+            ok = entry.get("found", 0) > 0 or not entry.get("error")
+            color = (THEME.green_ok if ok else THEME.red_danger)
+            ctk.CTkLabel(
+                row, text="●", font=ctk.CTkFont(size=12),
+                text_color=color, width=20
+            ).pack(side="left", padx=(8, 4))
+            ctk.CTkLabel(
+                row, text=entry.get("ts", "?"),
+                font=ctk.CTkFont(size=11),
+                text_color=THEME.text_muted, width=130, anchor="w"
+            ).pack(side="left")
+            found = entry.get("found", 0)
+            added = entry.get("added", 0)
+            extras = []
+            if entry.get("pregenerated"):
+                extras.append(f"{entry['pregenerated']} lettres pré-générées")
+            if entry.get("sent"):
+                extras.append(f"{entry['sent']} envoyées")
+            if entry.get("error"):
+                extras.append(f"erreur : {entry['error'][:60]}")
+            extra_txt = " · ".join(extras)
+            text = (f"{found} offres · {added} ajoutées"
+                    + (f" · {extra_txt}" if extra_txt else ""))
+            ctk.CTkLabel(
+                row, text=text, font=ctk.CTkFont(size=11),
+                text_color=THEME.text_primary, anchor="w"
+            ).pack(side="left", fill="x", expand=True, padx=(0, 8), pady=4)
+
+    def _routine_sparkline_widget(self, parent, history, count=30, height=42):
+        """Mini-graph en barres pour l'historique récent."""
+        wrap = ctk.CTkFrame(parent, fg_color="transparent", height=height)
+        wrap.pack(fill="x", padx=14, pady=(0, 4))
+        wrap.pack_propagate(False)
+
+        canvas = tk.Canvas(
+            wrap, height=height, bg=THEME.bg_panel,
+            highlightthickness=0, bd=0
+        )
+        canvas.pack(fill="both", expand=True)
+
+        runs = history[-count:] if history else []
+        pads = count - len(runs)
+        max_found = max((r.get("found", 0) for r in runs), default=1) or 1
+
+        def draw(_event=None):
+            try:
+                canvas.delete("all")
+                w = canvas.winfo_width()
+                if w <= 1:
+                    canvas.after(60, draw)
+                    return
+                gap = 2
+                bar_w = max(2, (w - gap * (count - 1)) / count)
+                x = 0
+                for _ in range(pads):
+                    canvas.create_rectangle(
+                        x, height - 3, x + bar_w, height,
+                        fill=THEME.bg_panel_alt, outline=""
+                    )
+                    x += bar_w + gap
+                for r in runs:
+                    found = int(r.get("found", 0) or 0)
+                    ratio = found / max_found if max_found else 0
+                    bar_h = max(3, ratio * (height - 4))
+                    color = (THEME.accent if found > 0
+                             else THEME.bg_panel_alt)
+                    canvas.create_rectangle(
+                        x, height - bar_h, x + bar_w, height,
+                        fill=color, outline=""
+                    )
+                    x += bar_w + gap
+            except Exception:
+                pass
+
+        canvas.bind("<Configure>", draw)
+        canvas.after(80, draw)
+        return canvas
 
     def _routine_next_text(self):
         nxt = self.cfg.get("routine", {}).get("next_run", 0)
@@ -3845,43 +4315,104 @@ class App(ctk.CTk):
     def _save_routine_silent(self, *_args):
         """Persistance silencieuse : appelée par auto-save sur changement
         de n'importe quel champ. Pas de popup, pas de re-render UI
-        (sinon le focus saute hors du widget en cours d'édition)."""
-        # Si la page de routine n'est plus active, on ignore (les widgets
-        # ont été détruits par _clear_main).
-        if not (hasattr(self, "routine_kw_entry")
-                and self.routine_kw_entry.winfo_exists()):
+        (sinon le focus saute hors du widget en cours d'édition).
+        Tous les accès widgets sont entourés de winfo_exists guards car
+        la page peut être en cours de destruction."""
+        if not (hasattr(self, "routine_kw_chips")
+                and self.routine_kw_chips.winfo_exists()):
             return
+        routine = self.cfg.setdefault("routine", {})
+
+        # Helpers locaux
+        def _g_entry(attr, default=""):
+            try:
+                w = getattr(self, attr, None)
+                if w is None or not w.winfo_exists():
+                    return default
+                return w.get().strip()
+            except Exception:
+                return default
+
+        def _g_int(attr, default):
+            try:
+                v = int(_g_entry(attr, str(default)) or default)
+                return v
+            except Exception:
+                return default
+
+        # Fréquence
         try:
-            interval = int(self.routine_interval_var.get() or "1")
-            interval = max(1, interval)
+            interval = max(1, int(self.routine_interval_var.get() or "1"))
         except ValueError:
             interval = 6
-        kw_raw = self.routine_kw_entry.get().strip()
-        routine = self.cfg.setdefault("routine", {})
         routine["enabled"]      = bool(self.routine_enabled_var.get())
         routine["interval"]     = interval
         routine["unit"]         = self.routine_unit_var.get()
-        routine["mots_cles"]    = [k.strip() for k in kw_raw.split(",") if k.strip()]
-        routine["localisation"] = self.routine_loc_entry.get().strip()
+
+        # Mots-clés (depuis chips)
         try:
-            routine["rayon_km"] = int(self.routine_km_entry.get().strip() or "30")
-        except ValueError:
-            routine["rayon_km"] = 30
-        routine["contrat"]  = self.routine_contrat_var.get()
-        routine["auto_add"] = bool(self.routine_auto_add_var.get())
+            routine["mots_cles"] = self.routine_kw_chips.get_values()
+        except Exception:
+            pass
+        try:
+            if hasattr(self, "routine_kw_excl_chips") \
+               and self.routine_kw_excl_chips.winfo_exists():
+                routine["mots_cles_exclus"] = self.routine_kw_excl_chips.get_values()
+        except Exception:
+            pass
+
+        # Lieu / rayon / contrat
+        routine["localisation"] = _g_entry("routine_loc_entry",
+                                            routine.get("localisation", ""))
+        routine["rayon_km"]     = _g_int("routine_km_entry", 30)
+        try:
+            routine["contrat"] = self.routine_contrat_var.get()
+        except Exception:
+            pass
+
+        # Télétravail + salaire
+        try:
+            routine["teletravail"] = self.routine_tt_var.get()
+        except Exception:
+            pass
+        routine["salaire_min"] = _g_int("routine_sal_entry", 0)
+
+        # Automatisation
+        try:
+            routine["auto_add"]    = bool(self.routine_auto_add_var.get())
+            routine["auto_pregen"] = bool(self.routine_auto_pregen_var.get())
+            routine["auto_send"]   = bool(self.routine_auto_send_var.get())
+        except Exception:
+            pass
+
+        # Notifications
+        try:
+            routine["notif_macos"] = bool(self.routine_notif_macos_var.get())
+            routine["notif_son"]   = bool(self.routine_notif_son_var.get())
+            routine["notif_badge"] = bool(self.routine_notif_badge_var.get())
+        except Exception:
+            pass
+
+        # Limites
+        routine["max_per_run"] = max(1, _g_int("routine_max_run_entry", 50))
+        routine["daily_quota"] = max(1, _g_int("routine_quota_entry", 200))
+
         routine["next_run"] = self._routine_compute_next()
         save_config(self.cfg)
-        # Refresh du label "prochaine exécution" sans recréer la page
+
+        # Refresh feedback léger
         try:
             if hasattr(self, "routine_next_label") and \
                self.routine_next_label.winfo_exists():
-                self.routine_next_label.configure(text=self._routine_next_text())
+                interval = routine["interval"]
+                unit = routine["unit"]
+                self.routine_next_label.configure(
+                    text=f"{self._routine_next_text()}  ·  toutes les {interval} {unit}"
+                )
             if hasattr(self, "routine_save_status") and \
                self.routine_save_status.winfo_exists():
                 w = self.routine_save_status
                 w.configure(text="Sauvegardé", text_color=THEME.green_ok)
-                # Capture la référence du widget courant pour éviter
-                # d'effacer un nouveau widget si la page est recréée < 2s.
                 self.after(2000, lambda w=w: (
                     w.configure(text="") if w.winfo_exists() else None
                 ))
@@ -3889,7 +4420,7 @@ class App(ctk.CTk):
             pass
 
     def _save_routine(self):
-        """Sauvegarde explicite déclenchée par le bouton (popup confirm)."""
+        """Sauvegarde explicite (compat : ancienne signature, sans bouton)."""
         self._save_routine_silent()
         messagebox.showinfo("Sauvegardé", "Routine sauvegardée.")
         self.show_routine()
@@ -3924,11 +4455,131 @@ class App(ctk.CTk):
 
         threading.Thread(target=loop, daemon=True).start()
 
+    def _routine_send_notification(self, title, message):
+        """Envoie une notification système macOS via osascript."""
+        if sys.platform != "darwin":
+            return
+        try:
+            import subprocess
+            # On échappe les guillemets dans les contenus utilisateur
+            safe_msg = (message or "").replace('"', "'").replace("\n", " ")
+            safe_title = (title or "").replace('"', "'")
+            subprocess.run(
+                ["osascript", "-e",
+                 f'display notification "{safe_msg}" with title "{safe_title}"'],
+                timeout=3, capture_output=True
+            )
+        except Exception as e:
+            print(f"[routine] notif macOS erreur : {e}")
+
+    def _routine_play_sound(self):
+        if sys.platform != "darwin":
+            return
+        try:
+            import subprocess
+            subprocess.Popen(
+                ["afplay", "/System/Library/Sounds/Glass.aiff"],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            )
+        except Exception:
+            pass
+
+    def _routine_filter_excludes(self, offre, exclus):
+        """True si l'offre matche AU MOINS un mot-clé exclu (= à drop)."""
+        if not exclus:
+            return False
+        hay = " ".join([
+            offre.get("titre", ""),
+            offre.get("poste", ""),
+            offre.get("description", ""),
+            offre.get("contrat", ""),
+        ]).lower()
+        for kw in exclus:
+            k = (kw or "").strip().lower()
+            if k and k in hay:
+                return True
+        return False
+
+    def _routine_filter_teletravail(self, offre, pref):
+        """Filtre selon préférence télétravail. Si l'offre n'a pas d'info,
+        on laisse passer (False = à drop, True = à drop)."""
+        if pref == "Tous":
+            return False
+        hay = " ".join([
+            offre.get("titre", ""),
+            offre.get("description", ""),
+            offre.get("teletravail", ""),
+            offre.get("remote", ""),
+        ]).lower()
+        has_remote = any(w in hay for w in ["télétravail", "remote", "100% télé", "full remote"])
+        has_hybrid = any(w in hay for w in ["hybride", "partiel", "2 jours", "3 jours"])
+        has_onsite = "présentiel" in hay or "sur site" in hay or "in-office" in hay
+        if pref == "Oui":
+            # On exige du télétravail explicite
+            return not has_remote
+        if pref == "Hybride":
+            # On accepte hybride OU télétravail
+            return not (has_remote or has_hybrid)
+        if pref == "Non":
+            return has_remote and not has_onsite
+        return False
+
+    def _routine_filter_salaire(self, offre, salaire_min):
+        """Drop si on a une info salaire et qu'elle est < min. Sinon on garde."""
+        if not salaire_min:
+            return False
+        sal_raw = (offre.get("salaire") or offre.get("remuneration") or "")
+        if not sal_raw:
+            return False  # pas d'info → on garde
+        # Cherche un nombre dans la chaîne (k€, €, /an, etc.)
+        m = re.search(r"(\d{2,3})\s*(?:k|000)", sal_raw.lower())
+        if not m:
+            return False
+        try:
+            v = int(m.group(1))
+            return v < salaire_min
+        except ValueError:
+            return False
+
+    def _routine_count_added_today(self):
+        """Compte les candidatures ajoutées via routine dans les dernières 24h."""
+        import time as _t
+        now = _t.time()
+        cutoff = now - 86400
+        n = 0
+        for c in self.cfg.get("candidatures", []):
+            if "(via routine)" not in (c.get("notes") or ""):
+                continue
+            # On utilise la date du jour (champ ISO) ; pas précis à l'heure
+            # mais suffisant pour un quota journalier.
+            ts_str = c.get("date", "")
+            try:
+                import datetime as _dt
+                d = _dt.date.fromisoformat(ts_str)
+                if (_dt.date.today() - d).days == 0:
+                    n += 1
+            except Exception:
+                pass
+        return n
+
     def _run_routine_search(self, manual=False):
         """Exécute une recherche routine avec les critères sauvegardés."""
         import time as _t
         routine = self.cfg.get("routine", {})
         if not manual and not routine.get("enabled"):
+            return
+
+        # Quota check
+        quota = int(routine.get("daily_quota", 200) or 200)
+        if not manual and self._routine_count_added_today() >= quota:
+            print(f"[routine] quota journalier atteint ({quota}) — skip ce run")
+            routine.setdefault("history", []).append({
+                "ts":    _t.strftime("%Y-%m-%d %H:%M", _t.localtime()),
+                "found": 0, "added": 0,
+                "error": f"quota journalier atteint ({quota})",
+            })
+            routine["next_run"] = self._routine_compute_next()
+            save_config(self.cfg)
             return
 
         # Copie cfg avec critères routine
@@ -3940,15 +4591,28 @@ class App(ctk.CTk):
             "contrat":     routine.get("contrat", "Tous"),
         }
 
+        scrape_err = None
         try:
             from scraper import OffreScraper
             scraper = OffreScraper(cfg_run)
             offres = scraper.search_all(progress_cb=lambda m: None)
         except Exception as e:
+            scrape_err = str(e)
             print(f"[routine] scrape error : {e}")
             offres = []
 
-        # Dédup : écarte les offres déjà en candidatures
+        # ── Filtres avancés ──
+        exclus  = routine.get("mots_cles_exclus", []) or []
+        tt_pref = routine.get("teletravail", "Tous")
+        sal_min = int(routine.get("salaire_min", 0) or 0)
+        offres = [
+            o for o in offres
+            if not self._routine_filter_excludes(o, exclus)
+            and not self._routine_filter_teletravail(o, tt_pref)
+            and not self._routine_filter_salaire(o, sal_min)
+        ]
+
+        # Dédup avec candidatures existantes
         already = set()
         for c in self.cfg.get("candidatures", []):
             already.add((c.get("entreprise", ""), c.get("poste", ""), c.get("url", "")))
@@ -3957,7 +4621,15 @@ class App(ctk.CTk):
             if (o.get("entreprise", ""), o.get("titre", ""), o.get("url", "")) not in already
         ]
 
+        # Limite max par run
+        max_per_run = int(routine.get("max_per_run", 50) or 50)
+        if len(new_offres) > max_per_run:
+            new_offres = new_offres[:max_per_run]
+
         added = 0
+        pregenerated = 0
+        sent = 0
+        new_candidat_indices = []
         if routine.get("auto_add"):
             import datetime as _dt
             for o in new_offres:
@@ -3975,32 +4647,146 @@ class App(ctk.CTk):
                     "notes":       "(via routine)",
                 })
                 added += 1
+                new_candidat_indices.append(len(self.cfg["candidatures"]) - 1)
 
-        # Enregistre historique + prochain run
+            # Pré-génération IA (lettre + mail) pour chaque nouvelle candidature
+            if routine.get("auto_pregen") and new_candidat_indices:
+                try:
+                    from ai_engine import AIEngine
+                    eng = AIEngine(self.cfg)
+                    for idx in new_candidat_indices:
+                        c = self.cfg["candidatures"][idx]
+                        offre = {
+                            "titre":       c.get("poste", ""),
+                            "poste":       c.get("poste", ""),
+                            "entreprise":  c.get("entreprise", ""),
+                            "description": c.get("description", ""),
+                        }
+                        try:
+                            c["lettre"] = eng.generate_letter(offre, self.cfg) or ""
+                            c["mail"]   = eng.generate_email(offre, self.cfg) or ""
+                            c["notes"]  = (c.get("notes", "") + " · pré-générée").strip()
+                            pregenerated += 1
+                        except Exception as e:
+                            print(f"[routine] pregen erreur pour {c.get('entreprise')}: {e}")
+                except Exception as e:
+                    print(f"[routine] AIEngine init erreur : {e}")
+
+            # Envoi auto si email + auto_send activé
+            if routine.get("auto_send") and routine.get("auto_pregen"):
+                try:
+                    from mail_sender import MailSender
+                    sender = MailSender(self.cfg)
+                    for idx in new_candidat_indices:
+                        c = self.cfg["candidatures"][idx]
+                        email = (c.get("email") or "").strip()
+                        if not email or "@" not in email:
+                            continue
+                        try:
+                            mail_body = c.get("mail", "")
+                            if not mail_body:
+                                continue
+                            sender.send(
+                                to=email,
+                                subject=f"Candidature — {c.get('poste', '')}",
+                                body=mail_body,
+                            )
+                            c["statut"] = "Envoyée"
+                            c["notes"] = (c.get("notes", "") + " · envoyée auto").strip()
+                            sent += 1
+                        except Exception as e:
+                            print(f"[routine] envoi erreur {email} : {e}")
+                except Exception as e:
+                    print(f"[routine] MailSender init erreur : {e}")
+
+        # ── Historique + stats ──
         hist = routine.setdefault("history", [])
-        hist.append({
+        entry = {
             "ts":    _t.strftime("%Y-%m-%d %H:%M", _t.localtime()),
             "found": len(new_offres),
             "added": added,
-        })
+        }
+        if pregenerated:
+            entry["pregenerated"] = pregenerated
+        if sent:
+            entry["sent"] = sent
+        if scrape_err:
+            entry["error"] = scrape_err[:200]
+        hist.append(entry)
         if len(hist) > 50:
             del hist[:-50]
+
+        # Stats globales
+        stats = routine.setdefault("stats", {})
+        stats["total_found"] = int(stats.get("total_found", 0)) + len(new_offres)
+        stats["total_added"] = int(stats.get("total_added", 0)) + added
+        stats["total_sent"]  = int(stats.get("total_sent", 0))  + sent
+
         routine["next_run"] = self._routine_compute_next()
         self.cfg["routine"] = routine
         save_config(self.cfg)
 
-        # Mise à jour UI si onglet routine ouvert
-        if hasattr(self, "routine_next_label") and self.routine_next_label.winfo_exists():
-            self.after(0, lambda: self.routine_next_label.configure(text=self._routine_next_text()))
+        # ── Notifications ──
+        if len(new_offres) > 0 and routine.get("notif_macos", True):
+            entreprises = ", ".join(o.get("entreprise", "?")
+                                     for o in new_offres[:3])
+            if len(new_offres) > 3:
+                entreprises += f" +{len(new_offres) - 3}"
+            self._routine_send_notification(
+                f"{len(new_offres)} nouvelle{'s' if len(new_offres) > 1 else ''} offre",
+                f"{entreprises}"
+            )
+        if len(new_offres) > 5 and routine.get("notif_son", False):
+            self._routine_play_sound()
+
+        # ── Update UI si page ouverte ──
+        try:
+            if hasattr(self, "routine_next_label") \
+               and self.routine_next_label.winfo_exists():
+                self.after(0, lambda: self.routine_next_label.configure(
+                    text=self._routine_next_text()
+                ))
+        except Exception:
+            pass
+
+        # Refresh badge sidebar
+        if routine.get("notif_badge", True):
+            self.after(0, lambda: self._update_sidebar_badge())
 
         if manual:
             def _report():
+                extras = []
+                if pregenerated:
+                    extras.append(f"{pregenerated} pré-générée(s)")
+                if sent:
+                    extras.append(f"{sent} envoyée(s)")
+                extra_txt = "\n" + " · ".join(extras) if extras else ""
                 messagebox.showinfo(
                     "Routine",
                     f"{len(new_offres)} nouvelle(s) offre(s) trouvée(s)\n"
                     f"{added} ajoutée(s) automatiquement"
+                    f"{extra_txt}"
                 )
             self.after(0, _report)
+
+    def _update_sidebar_badge(self):
+        """Met à jour le badge sur le bouton Candidatures si des offres
+        ont été ajoutées via routine sans avoir été vues."""
+        try:
+            cands = self.cfg.get("candidatures", []) or []
+            unseen = sum(1 for c in cands
+                         if c.get("statut") == "À envoyer"
+                         and "(via routine)" in (c.get("notes") or ""))
+            if hasattr(self, "nav_btns") \
+               and "CANDIDATURES" in self.nav_btns:
+                btn = self.nav_btns["CANDIDATURES"]
+                if btn.winfo_exists():
+                    label = "CANDIDATURES"
+                    if unseen > 0:
+                        label = f"CANDIDATURES  ({unseen})"
+                    btn.configure(text=label)
+        except Exception:
+            pass
 
     # ══════════════════════════════════════════════════════════
     # 🖱️ Scroll helper : isole le wheel d'un textbox du parent

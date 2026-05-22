@@ -1,6 +1,6 @@
 {
-  "version": "1.0.23",
-  "url": "https://github.com/lucasegen/candidaturebot/releases/download/v1.0.23/CandidatureBot-1.0.23.zip",
-  "notes": "Fix 3 bugs UI Paramètres :\n\n• Tabs ré-écrits en custom underline-style (label bold + barre accent sous l'actif) au lieu du CTkTabview par défaut qui rendait moche.\n\n• Fond de la page Paramètres : retour à la couleur dark gray du reste de l'app (avant : THEME.bg = #15151a, trop sombre).\n\n• Flash blanc lors du changement de page : self.main a maintenant un fg_color explicite au lieu de 'transparent' → le Tk natif n'apparaît plus pendant le rebuild.\n\n• L'onglet actif des sous-onglets est mémorisé (cfg.ui.settings_subtab) → on retombe sur la même section au prochain switch.",
+  "version": "1.0.24",
+  "url": "https://github.com/lucasegen/candidaturebot/releases/download/v1.0.24/CandidatureBot-1.0.24.zip",
+  "notes": "Refonte complète de la page Routine + 8 nouvelles fonctionnalités :\n\n• Hero status card en haut : avatar R + badge EN MARCHE/ARRÊTÉE + stats globales (trouvées/ajoutées/envoyées/entretiens) + switch + bouton Lancer maintenant.\n• Layout 2 colonnes : Fréquence + Critères à gauche, Automatisation + Notifications + Limites à droite.\n• Presets fréquence (1h/3h/6h/12h) + champ custom.\n• Chips pour mots-clés + nouveaux chips MOTS-CLÉS EXCLUS (anti-stage, anti-alternance).\n• Filtres Télétravail (Oui/Hybride/Non/Tous) et Salaire min (k€/an).\n• Auto-pré-génération lettre + mail par IA en arrière-plan pour chaque nouvelle offre.\n• Envoi auto si email trouvé (OFF par défaut, marqué DANGER).\n• Notifications macOS + son + badge sidebar.\n• Limites anti-spam : max par run + quota journalier avec pause auto.\n• Sparkline activité des 30 derniers runs + historique structuré.\n• Bonus : fix ChipsEditor — le bouton + ajouter est maintenant SOUS le chip box, plus jamais clipped quand ça wrappe.",
   "released": "2026-05-22"
 }

@@ -1,6 +1,6 @@
 {
-  "version": "1.0.19",
-  "url": "https://github.com/lucasegen/candidaturebot/releases/download/v1.0.19/CandidatureBot-1.0.19.zip",
-  "notes": "3 fixes Candidatures :\n\n• Dropdown statut plus compact (width 130→108, hauteur 28→26).\n• Zone cliquable réduite à la portion entre le dropdown statut et le bouton Voir (entreprise/poste/lieu). Checkbox et bouton Voir ne déclenchent plus l'ouverture du workflow par accident.\n• Bulk 'Préparer dossiers' génère maintenant la lettre ET le mail via IA pour chaque candidature sélectionnée + popup de progression (X/N en cours, barre, nom de l'entreprise courante). Chaque ZIP contient Lettre.pdf + CV.pdf + mail.txt.",
+  "version": "1.0.20",
+  "url": "https://github.com/lucasegen/candidaturebot/releases/download/v1.0.20/CandidatureBot-1.0.20.zip",
+  "notes": "Audit des 36 icônes paint via agent design + correction des 8 problématiques :\n\n• icon_pin : vraie goutte/marker (avant : bouée + barre verticale détachée)\n• icon_mail_send : alias vers icon_send (avant : 2 triangles disjoints)\n• icon_copy : pas de fill (avant : rectangle opaque qui masque le fond derrière)\n• icon_refresh + icon_loop : pointes de flèche tangentes à l'arc (avant : pointes décalées en forme de cerf-volant)\n• icon_question : arc du ? agrandi (avant : ressemblait à un !)\n• icon_settings : dents trapézoïdales (avant : simples traits radiaux = effet rayon de vélo)\n• icon_link : 2 demi-pilules superposées + barre centrale (avant : 2 arcs C disjoints)\n\nQualité visuelle des icônes passée de 78% à 100% reconnaissables.",
   "released": "2026-05-22"
 }

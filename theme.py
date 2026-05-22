@@ -155,26 +155,38 @@ def icon_trash(size=20, color=Colors.red_danger):
 
 
 def icon_settings(size=20, color=Colors.text_secondary):
-    """Engrenage line-art : anneau + 8 dents + cercle central."""
+    """Engrenage line-art : anneau + 8 dents trapézoïdales + cercle central.
+    Les dents sont des petits rectangles, pas des traits → lecture engrenage."""
     img, d, hd = _hd_canvas(size)
     c = _hex_to_rgba(color)
     cx, cy = hd // 2, hd // 2
-    r_out = int(hd * 0.34)
     r_in = int(hd * 0.14)
+    r_out = int(hd * 0.30)
+    r_teeth = int(hd * 0.42)
     # Cercle central
     _circle(d, cx, cy, r_in, c, width=_HD_STROKE)
     # Anneau extérieur
     _circle(d, cx, cy, r_out, c, width=_HD_STROKE)
-    # 8 dents radiales (croix + diagonales)
+    # 8 dents trapézoïdales — épaisseur perpendiculaire au rayon
     import math
     teeth_count = 8
+    half_w = int(hd * 0.05)
     for i in range(teeth_count):
         angle = (i / teeth_count) * 2 * math.pi
-        x1 = cx + int(math.cos(angle) * (r_out - 1))
-        y1 = cy + int(math.sin(angle) * (r_out - 1))
-        x2 = cx + int(math.cos(angle) * (r_out + int(hd * 0.10)))
-        y2 = cy + int(math.sin(angle) * (r_out + int(hd * 0.10)))
-        _line(d, (x1, y1), (x2, y2), c, _HD_STROKE)
+        cosA, sinA = math.cos(angle), math.sin(angle)
+        # Perpendiculaire
+        px, py = -sinA, cosA
+        # 4 coins du trapèze : base sur le bord du r_out, sommet sur r_teeth
+        x1 = cx + int(cosA * r_out + px * half_w)
+        y1 = cy + int(sinA * r_out + py * half_w)
+        x2 = cx + int(cosA * r_teeth + px * half_w * 0.7)
+        y2 = cy + int(sinA * r_teeth + py * half_w * 0.7)
+        x3 = cx + int(cosA * r_teeth - px * half_w * 0.7)
+        y3 = cy + int(sinA * r_teeth - py * half_w * 0.7)
+        x4 = cx + int(cosA * r_out - px * half_w)
+        y4 = cy + int(sinA * r_out - py * half_w)
+        d.polygon([(x1, y1), (x2, y2), (x3, y3), (x4, y4)],
+                  outline=c, fill=c, width=_HD_STROKE)
     return _finalize(img, size)
 
 
@@ -209,20 +221,29 @@ def icon_list(size=20, color=Colors.text_secondary):
 
 
 def icon_refresh(size=20, color=Colors.text_secondary):
-    """Flèche circulaire (3/4 cercle + pointe)."""
+    """Flèche circulaire (3/4 cercle + pointe tangente)."""
     img, d, hd = _hd_canvas(size)
     c = _hex_to_rgba(color)
     cx, cy = hd // 2, hd // 2
-    r = int(hd * 0.32)
-    # 3/4 d'arc (de 30° à 300°, ouverture en haut-droite)
-    d.arc([cx - r, cy - r, cx + r, cy + r], 30, 300,
+    r = int(hd * 0.30)
+    # 3/4 d'arc — de 45° à 315° (ouverture en haut)
+    d.arc([cx - r, cy - r, cx + r, cy + r], 45, 315,
           fill=c, width=_HD_STROKE)
-    # Pointe de flèche en haut-droite
-    a = int(hd * 0.10)
+    # Pointe de flèche tangente à 45° (le point de départ de l'arc)
+    import math
+    a_rad = _math.radians(45)
+    # Centre de la pointe = sur l'arc à 45°
+    px = cx + int(r * _math.cos(a_rad))
+    py = cy + int(r * _math.sin(a_rad))
+    # Vecteur tangent (90° du rayon)
+    tg = (-_math.sin(a_rad), _math.cos(a_rad))
+    # Vecteur normal sortant
+    nm = (_math.cos(a_rad), _math.sin(a_rad))
+    sz = int(hd * 0.12)
     d.polygon([
-        (cx + r + 2, cy - r // 2),
-        (cx + r - a, cy - r // 2 - a),
-        (cx + r - a, cy - r // 2 + a),
+        (px + int(nm[0] * sz), py + int(nm[1] * sz)),         # pointe
+        (px + int(tg[0] * sz), py + int(tg[1] * sz)),         # côté tangent +
+        (px - int(tg[0] * sz), py - int(tg[1] * sz)),         # côté tangent -
     ], fill=c)
     return _finalize(img, size)
 
@@ -266,23 +287,25 @@ def icon_stop(size=20, color=Colors.red_danger):
 
 
 def icon_loop(size=20, color=Colors.text_secondary):
-    """Boucle / refresh routine — arc 270° + pointe."""
+    """Boucle / refresh routine — arc 270° + pointe tangente."""
     img, d, hd = _hd_canvas(size)
     c = _hex_to_rgba(color)
     cx, cy = hd // 2, hd // 2
-    r = int(hd * 0.32)
+    r = int(hd * 0.30)
+    # Arc de 45° à 315° = 3/4 cercle (ouverture en haut)
     d.arc([cx - r, cy - r, cx + r, cy + r], 45, 315,
           fill=c, width=_HD_STROKE)
-    # Pointe à l'extrémité (en bas-droite à ~45°)
-    import math
-    end_a = math.radians(315)
-    a = int(hd * 0.12)
-    ex = cx + int(r * math.cos(end_a))
-    ey = cy + int(r * math.sin(end_a))
+    # Pointe tangente à la fin de l'arc (315°)
+    end_a = _math.radians(315)
+    px = cx + int(r * _math.cos(end_a))
+    py = cy + int(r * _math.sin(end_a))
+    tg = (-_math.sin(end_a), _math.cos(end_a))     # vecteur tangent
+    nm = (_math.cos(end_a), _math.sin(end_a))      # vecteur normal sortant
+    sz = int(hd * 0.12)
     d.polygon([
-        (ex - a, ey),
-        (ex + a // 2, ey - a),
-        (ex + a // 2, ey + a),
+        (px + int(nm[0] * sz), py + int(nm[1] * sz)),
+        (px + int(tg[0] * sz), py + int(tg[1] * sz)),
+        (px - int(tg[0] * sz), py - int(tg[1] * sz)),
     ], fill=c)
     return _finalize(img, size)
 
@@ -301,20 +324,33 @@ def icon_mail(size=20, color=Colors.text_secondary):
 
 
 def icon_link(size=20, color=Colors.blue_link):
-    img, d = _new_canvas(size)
+    """Chaîne — 2 demi-pilules superposées + barre de jonction (Lucide link)."""
+    img, d, hd = _hd_canvas(size)
     c = _hex_to_rgba(color)
-    # 2 maillons inclinés à 45°
-    r = int(size * 0.20)
-    # Premier maillon (en haut-gauche)
-    d.arc([int(size * 0.10), int(size * 0.40),
-           int(size * 0.55), int(size * 0.85)], 90, 270, fill=c, width=2)
-    # Deuxième (bas-droit)
-    d.arc([int(size * 0.45), int(size * 0.15),
-           int(size * 0.90), int(size * 0.60)], 270, 90, fill=c, width=2)
-    # Trait de connexion
-    d.line([(int(size * 0.38), int(size * 0.60)),
-            (int(size * 0.62), int(size * 0.40))], fill=c, width=2)
-    return img
+    # Maillon gauche (demi-pilule horizontale, ouverte à droite)
+    # arc 90° → 270° = côté droit du cercle ouvert
+    left_box = [int(hd * 0.10), int(hd * 0.36),
+                int(hd * 0.52), int(hd * 0.64)]
+    d.arc(left_box, 90, 270, fill=c, width=_HD_STROKE)
+    # Côté plat (droite) du maillon gauche : 2 traits horizontaux qui ferment
+    _line(d, (int(hd * 0.31), int(hd * 0.36)),
+             (int(hd * 0.46), int(hd * 0.36)), c, _HD_STROKE)
+    _line(d, (int(hd * 0.31), int(hd * 0.64)),
+             (int(hd * 0.46), int(hd * 0.64)), c, _HD_STROKE)
+
+    # Maillon droit (demi-pilule horizontale, ouverte à gauche)
+    right_box = [int(hd * 0.48), int(hd * 0.36),
+                 int(hd * 0.90), int(hd * 0.64)]
+    d.arc(right_box, 270, 90, fill=c, width=_HD_STROKE)
+    _line(d, (int(hd * 0.54), int(hd * 0.36)),
+             (int(hd * 0.69), int(hd * 0.36)), c, _HD_STROKE)
+    _line(d, (int(hd * 0.54), int(hd * 0.64)),
+             (int(hd * 0.69), int(hd * 0.64)), c, _HD_STROKE)
+
+    # Barre de jonction horizontale au centre
+    _line(d, (int(hd * 0.36), int(hd * 0.50)),
+             (int(hd * 0.64), int(hd * 0.50)), c, _HD_STROKE)
+    return _finalize(img, size)
 
 
 def icon_download(size=20, color=Colors.text_secondary):
@@ -381,17 +417,9 @@ def icon_save(size=20, color=Colors.text_primary):
 
 
 def icon_mail_send(size=20, color=Colors.text_primary):
-    """Avion en papier (envoi)."""
-    img, d = _new_canvas(size)
-    c = _hex_to_rgba(color)
-    d.polygon([
-        (int(size * 0.15), int(size * 0.78)),
-        (int(size * 0.85), int(size * 0.22)),
-        (int(size * 0.55), int(size * 0.85)),
-        (int(size * 0.45), int(size * 0.58)),
-        (int(size * 0.20), int(size * 0.48)),
-    ], outline=c, width=2)
-    return img
+    """Avion en papier (envoi) — alias vers icon_send qui est correctement
+    dessiné (l'ancienne version sortait 2 triangles disjoints)."""
+    return icon_send(size=size, color=color)
 
 
 def icon_briefcase(size=20, color=Colors.text_secondary):
@@ -413,18 +441,25 @@ def icon_briefcase(size=20, color=Colors.text_secondary):
 
 
 def icon_pin(size=20, color=Colors.text_secondary):
-    """Pin / map marker."""
-    img, d = _new_canvas(size)
+    """Pin / map marker — vraie goutte avec pointe en bas."""
+    img, d, hd = _hd_canvas(size)
     c = _hex_to_rgba(color)
-    cx = size // 2
-    # Goutte
-    d.arc([int(size * 0.20), int(size * 0.15),
-           int(size * 0.80), int(size * 0.75)], 0, 360, fill=c, width=2)
-    # Cercle centre
-    d.ellipse([cx - 3, int(size * 0.38), cx + 3, int(size * 0.50)], outline=c, width=1)
-    # Pointe bas
-    d.line([(cx, int(size * 0.65)), (cx, int(size * 0.88))], fill=c, width=2)
-    return img
+    cx = hd // 2
+    head_r = int(hd * 0.28)
+    head_cy = int(hd * 0.36)
+    # Demi-cercle haut (le bulbe du pin) = arc 180–360°
+    d.arc([cx - head_r, head_cy - head_r,
+           cx + head_r, head_cy + head_r],
+          180, 360, fill=c, width=_HD_STROKE)
+    # 2 lignes diagonales du bord du cercle vers la pointe en bas
+    bottom_y = int(hd * 0.92)
+    _line(d, (cx - head_r, head_cy),
+             (cx, bottom_y), c, _HD_STROKE)
+    _line(d, (cx + head_r, head_cy),
+             (cx, bottom_y), c, _HD_STROKE)
+    # Petit cercle au centre du bulbe (le trou)
+    _circle(d, cx, head_cy, int(hd * 0.08), c, width=_HD_STROKE)
+    return _finalize(img, size)
 
 
 def icon_building(size=20, color=Colors.text_secondary):
@@ -445,22 +480,25 @@ def icon_building(size=20, color=Colors.text_secondary):
 
 
 def icon_question(size=20, color=Colors.text_secondary):
-    """Aide — cercle + point d'interrogation interne."""
+    """Aide — cercle + point d'interrogation interne (lisible)."""
     img, d, hd = _hd_canvas(size)
     c = _hex_to_rgba(color)
     cx, cy = hd // 2, hd // 2
-    r = int(hd * 0.40)
+    r = int(hd * 0.42)
     _circle(d, cx, cy, r, c, width=_HD_STROKE)
-    # Arc supérieur du ?
-    arc_r = int(hd * 0.13)
-    d.arc([cx - arc_r, cy - int(hd * 0.18),
-           cx + arc_r, cy + int(hd * 0.05)],
+    # Arc supérieur du ? — plus grand pour ne pas ressembler à un !
+    arc_r = int(hd * 0.18)
+    arc_cy = int(hd * 0.38)  # centre de l'arc, descendu
+    d.arc([cx - arc_r, arc_cy - arc_r,
+           cx + arc_r, arc_cy + arc_r],
           180, 360, fill=c, width=_HD_STROKE)
-    # Trait vertical sous l'arc
-    _line(d, (cx, cy + int(hd * 0.02)),
-             (cx, cy + int(hd * 0.16)), c, _HD_STROKE)
-    # Point en bas
-    _circle(d, cx, cy + int(hd * 0.24), int(hd * 0.04), c, width=0, fill=c)
+    # Trait vertical descendant du bas-droit de l'arc
+    # Le bas de l'arc en mode "arc supérieur" est à arc_cy (côté médian)
+    _line(d, (cx, arc_cy),
+             (cx, int(hd * 0.66)), c, _HD_STROKE)
+    # Point en bas (séparé du trait par un petit gap)
+    _circle(d, cx, int(hd * 0.78), int(hd * 0.05),
+            c, width=0, fill=c)
     return _finalize(img, size)
 
 
@@ -511,18 +549,30 @@ def icon_folder(size=20, color=Colors.text_secondary):
 
 
 def icon_copy(size=20, color=Colors.text_secondary):
-    """2 rectangles superposés (clipboard) — Lucide."""
+    """2 rectangles superposés (clipboard) — Lucide.
+    Pas de fill : on dessine seulement les segments visibles pour rester
+    transparent et lisible sur n'importe quel fond."""
     img, d, hd = _hd_canvas(size)
     c = _hex_to_rgba(color)
-    # Rectangle arrière (en haut-gauche)
-    d.rectangle([int(hd * 0.15), int(hd * 0.10),
-                 int(hd * 0.65), int(hd * 0.65)],
-                outline=c, width=_HD_STROKE)
-    # Rectangle avant (en bas-droite) — fond opaque pour masquer
-    box2 = [int(hd * 0.35), int(hd * 0.30),
-            int(hd * 0.88), int(hd * 0.88)]
-    d.rectangle(box2, fill=_hex_to_rgba(Colors.bg_panel_alt),
-                outline=c, width=_HD_STROKE)
+    # Rectangle arrière (haut-gauche) — on dessine seulement les
+    # segments NON cachés par le rectangle avant
+    # Box arrière : (a_left, a_top, a_right, a_bot)
+    a_l, a_t, a_r, a_b = int(hd * 0.18), int(hd * 0.12), \
+                          int(hd * 0.62), int(hd * 0.62)
+    # Rectangle avant : (f_left, f_top, f_right, f_bot)
+    f_l, f_t, f_r, f_b = int(hd * 0.38), int(hd * 0.32), \
+                          int(hd * 0.86), int(hd * 0.86)
+    # Segments visibles du rectangle ARRIÈRE :
+    #   - top complet
+    _line(d, (a_l, a_t), (a_r, a_t), c, _HD_STROKE)
+    #   - left complet
+    _line(d, (a_l, a_t), (a_l, a_b), c, _HD_STROKE)
+    #   - right (partie au-dessus du front)
+    _line(d, (a_r, a_t), (a_r, f_t), c, _HD_STROKE)
+    #   - bottom (partie à gauche du front)
+    _line(d, (a_l, a_b), (f_l, a_b), c, _HD_STROKE)
+    # Rectangle AVANT (entier outline)
+    d.rectangle([f_l, f_t, f_r, f_b], outline=c, width=_HD_STROKE)
     return _finalize(img, size)
 
 

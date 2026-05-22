@@ -27,7 +27,7 @@ ICONS = theme
 # En mode source on retombe sur le dossier du projet pour ne pas
 # casser le développement habituel.
 CONFIG_PATH = str(app_paths.config_path())
-APP_VERSION = "1.0.21"
+APP_VERSION = "1.0.22"
 SUPPORT_EMAIL = "candidaturebot.ai@gmail.com"
 
 # 🌐 URL du manifest de mise à jour.
@@ -173,6 +173,145 @@ def open_egg_window(parent):
     ).pack(pady=(4, 18))
     ctk.CTkButton(win, text="Fermer", width=100, command=win.destroy).pack()
     bring_to_front(win)
+
+
+# ══════════════════════════════════════════════════════════════
+# WIDGET : ChipsEditor — éditeur de tags wrappés
+# ══════════════════════════════════════════════════════════════
+class ChipsEditor(ctk.CTkFrame):
+    """Éditeur de chips (tags) avec wrap automatique.
+
+    Utilise un Text widget en interne pour bénéficier du wrap natif de Tk
+    (window_create dans un Text wrapped → les chips passent à la ligne tout
+    seuls quand le conteneur est plein).
+
+    API :
+        editor = ChipsEditor(parent, values=["Python", "Django"],
+                             placeholder="+ ajouter", on_change=callback)
+        editor.get_values() → list[str]
+        editor.set_values(values)
+    """
+    def __init__(self, parent, values=None, placeholder="+ ajouter",
+                 on_change=None, height=80, **kwargs):
+        super().__init__(
+            parent,
+            fg_color=theme.Colors.bg_panel,
+            border_color=theme.Colors.border,
+            border_width=1, corner_radius=6,
+            height=height,
+            **kwargs
+        )
+        self.pack_propagate(False)
+        self._values = list(values or [])
+        self._placeholder = placeholder
+        self._on_change = on_change
+
+        # Text widget : wrap natif. On bloque l'input clavier.
+        self._txt = tk.Text(
+            self, wrap="word", bd=0, highlightthickness=0,
+            bg=theme.Colors.bg_panel, cursor="arrow",
+            font=("Helvetica", 1),  # police minuscule pour minimiser hauteur de ligne
+        )
+        self._txt.pack(fill="both", expand=True, padx=6, pady=6)
+        # Bloque la saisie clavier (le widget reste utilisable pour embed)
+        self._txt.bind("<Key>", lambda e: "break")
+        self._txt.bind("<Button-1>", lambda e: "break")
+        self._render()
+
+    def _render(self):
+        self._txt.config(state="normal")
+        self._txt.delete("1.0", "end")
+        for v in self._values:
+            chip = self._make_chip(v)
+            self._txt.window_create("end", window=chip, padx=2, pady=2)
+        add_btn = self._make_add()
+        self._txt.window_create("end", window=add_btn, padx=2, pady=2)
+        self._txt.config(state="disabled")
+
+    def _make_chip(self, value):
+        f = ctk.CTkFrame(
+            self._txt, fg_color=theme.Colors.bg_panel_alt,
+            corner_radius=10, height=22
+        )
+        lbl = ctk.CTkLabel(
+            f, text=value, font=ctk.CTkFont(size=11),
+            fg_color="transparent", text_color=theme.Colors.text_primary
+        )
+        lbl.pack(side="left", padx=(9, 4), pady=2)
+        x_lbl = ctk.CTkLabel(
+            f, text="×", font=ctk.CTkFont(size=13, weight="bold"),
+            fg_color="transparent", text_color=theme.Colors.text_muted,
+            cursor="hand2", width=14
+        )
+        x_lbl.pack(side="left", padx=(0, 6))
+        x_lbl.bind("<Button-1>", lambda e, v=value: self._remove(v))
+        # Hover sur le × pour le faire ressortir
+        x_lbl.bind("<Enter>",
+                   lambda e, w=x_lbl: w.configure(text_color=theme.Colors.red_danger))
+        x_lbl.bind("<Leave>",
+                   lambda e, w=x_lbl: w.configure(text_color=theme.Colors.text_muted))
+        return f
+
+    def _make_add(self):
+        f = ctk.CTkFrame(
+            self._txt, fg_color="transparent",
+            border_color=theme.Colors.border, border_width=1,
+            corner_radius=10, height=22, cursor="hand2"
+        )
+        lbl = ctk.CTkLabel(
+            f, text=self._placeholder, font=ctk.CTkFont(size=11),
+            fg_color="transparent", text_color=theme.Colors.text_muted
+        )
+        lbl.pack(padx=10, pady=2)
+        f.bind("<Button-1>", self._prompt_add)
+        lbl.bind("<Button-1>", self._prompt_add)
+        # Hover
+        def _hover(_e=None):
+            f.configure(border_color=theme.Colors.accent)
+            lbl.configure(text_color=theme.Colors.accent_hover)
+        def _leave(_e=None):
+            f.configure(border_color=theme.Colors.border)
+            lbl.configure(text_color=theme.Colors.text_muted)
+        f.bind("<Enter>", _hover)
+        f.bind("<Leave>", _leave)
+        lbl.bind("<Enter>", _hover)
+        lbl.bind("<Leave>", _leave)
+        return f
+
+    def _prompt_add(self, event=None):
+        val = simpledialog.askstring(
+            "Ajouter", "Nouvelle valeur :",
+            parent=self.winfo_toplevel()
+        )
+        if val and val.strip():
+            v = val.strip()
+            if v.lower() not in (x.lower() for x in self._values):
+                self._values.append(v)
+                self._render()
+                if self._on_change:
+                    try: self._on_change(self._values)
+                    except Exception: pass
+
+    def _remove(self, value):
+        if value in self._values:
+            self._values.remove(value)
+            self._render()
+            if self._on_change:
+                try: self._on_change(self._values)
+                except Exception: pass
+
+    def get_values(self):
+        return list(self._values)
+
+    def set_values(self, values):
+        self._values = list(values or [])
+        # Si le widget a été détruit (ex : navigation page), on garde
+        # la valeur en mémoire mais on évite de re-render un widget mort.
+        try:
+            if self.winfo_exists() and self._txt.winfo_exists():
+                self._render()
+        except Exception:
+            pass
 
 
 # ══════════════════════════════════════════════════════════════
@@ -3910,190 +4049,454 @@ class App(ctk.CTk):
         self._remember_tab("profile")
         self._clear_main()
 
-        ctk.CTkLabel(
-            self.main, text="MES INFOS",
-            font=ctk.CTkFont(size=20, weight="bold")
-        ).pack(anchor="w", pady=(0, 4))
-        ctk.CTkLabel(
-            self.main,
-            text="Identité, expérience, CV et lettre type — tout est injecté dans les mails/lettres générés par l'IA.",
-            text_color="gray", font=ctk.CTkFont(size=12)
-        ).pack(anchor="w", pady=(0, 10))
-
-        form = ctk.CTkScrollableFrame(self.main)
-        form.pack(fill="both", expand=True)
-        form.grid_columnconfigure(1, weight=1)
-
         p = self.cfg.setdefault("profil", {})
         exp = self.cfg.setdefault("experience", {})
+        docs = self.cfg.setdefault("documents", {})
 
-        # Section identité
-        ctk.CTkLabel(form, text="IDENTITÉ",
-                     font=ctk.CTkFont(size=14, weight="bold")
-                     ).grid(row=0, column=0, columnspan=2, sticky="w",
-                            padx=5, pady=(5, 8))
+        # ── Header card : avatar + nom + complétude ──
+        self._build_profile_header(self.main, p, exp, docs)
+
+        # ── Body : 2 colonnes scrollables ──
+        body = ctk.CTkScrollableFrame(self.main, fg_color="transparent")
+        body.pack(fill="both", expand=True, pady=(12, 0))
+        body.grid_columnconfigure(0, weight=1, uniform="col")
+        body.grid_columnconfigure(1, weight=1, uniform="col")
+
+        left = ctk.CTkFrame(body, fg_color="transparent")
+        left.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
+        right = ctk.CTkFrame(body, fg_color="transparent")
+        right.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
+
+        self._build_identity_card(left, p)
+        self._build_experience_card(left, exp)
+        self._build_cv_card(right, docs)
+        self._build_lettre_card(right, p, docs)
+
+        # ── Footer sticky : info + bouton sauvegarder ──
+        footer = ctk.CTkFrame(self.main, fg_color="transparent")
+        footer.pack(fill="x", pady=(12, 0))
+        ctk.CTkLabel(
+            footer,
+            text="Email & ville viennent de Paramètres / Recherche.",
+            text_color=THEME.text_muted, font=ctk.CTkFont(size=11)
+        ).pack(side="left")
+        ctk.CTkButton(
+            footer, text="Sauvegarder",
+            image=theme.ctk_icon(theme.icon_save, size=14, color="#FFFFFF"),
+            compound="left",
+            command=self.save_profile, height=36, width=160, corner_radius=18,
+            fg_color=THEME.accent, hover_color=THEME.accent_hover,
+            font=ctk.CTkFont(size=13, weight="bold")
+        ).pack(side="right")
+
+    # ── Helpers show_profile ────────────────────────────────────
+    def _compute_initials(self, prenom, nom):
+        a = (prenom or "").strip()
+        b = (nom or "").strip()
+        if a and b:
+            return (a[0] + b[0]).upper()
+        if a:
+            return a[:2].upper()
+        if b:
+            return b[:2].upper()
+        return "??"
+
+    def _compute_profile_score(self, p, exp, docs):
+        """Renvoie (score 0-100, str décrivant ce qui manque)."""
+        checks = [
+            ("Prénom",      bool((p.get("prenom") or "").strip())),
+            ("Nom",         bool((p.get("nom") or "").strip())),
+            ("Téléphone",   bool((p.get("telephone") or "").strip())),
+            ("LinkedIn",    bool((p.get("linkedin") or "").strip())),
+            ("Poste",       bool((p.get("poste_recherche") or "").strip())),
+            ("Années",      int(exp.get("annees") or 0) > 0),
+            ("Compétences", len(exp.get("competences") or []) > 0),
+            ("Langues",     len(exp.get("langues") or []) > 0),
+            ("CV",          bool(docs.get("cv_path")) and os.path.exists(docs.get("cv_path", ""))),
+            ("Lettre",      bool((p.get("lettre_type") or "").strip()) or
+                            (bool(docs.get("lettre_path")) and
+                             os.path.exists(docs.get("lettre_path", "")))),
+        ]
+        passed = [name for name, ok in checks if ok]
+        missing = [name for name, ok in checks if not ok]
+        score = round(len(passed) * 100 / len(checks))
+        missing_str = ", ".join(missing[:3]) if missing else ""
+        if len(missing) > 3:
+            missing_str += f" +{len(missing) - 3}"
+        return score, missing_str
+
+    def _compute_cv_ats(self, docs):
+        """Renvoie (score 0-100 ou None, color)."""
+        path = docs.get("cv_path", "")
+        text = docs.get("cv_text", "")
+        if not path or not text or not os.path.exists(path):
+            return None, THEME.text_muted
+        try:
+            from cv_parser import ats_score
+            report = ats_score(path, text=text)
+            score = int(report.get("score", 0))
+        except Exception:
+            return None, THEME.text_muted
+        if score >= 80:
+            return score, THEME.green_ok
+        if score >= 60:
+            return score, THEME.amber
+        return score, THEME.red_danger
+
+    def _build_profile_header(self, parent, p, exp, docs):
+        header = ctk.CTkFrame(
+            parent, fg_color=THEME.bg_panel,
+            border_color=THEME.border, border_width=1, corner_radius=10
+        )
+        header.pack(fill="x")
+        header.grid_columnconfigure(1, weight=1)
+
+        # Avatar circulaire avec initiales
+        initials = self._compute_initials(p.get("prenom"), p.get("nom"))
+        avatar = ctk.CTkFrame(
+            header, width=56, height=56,
+            fg_color=THEME.accent, corner_radius=28
+        )
+        avatar.grid(row=0, column=0, padx=(18, 14), pady=14)
+        avatar.grid_propagate(False)
+        ctk.CTkLabel(
+            avatar, text=initials,
+            font=ctk.CTkFont(size=21, weight="bold"),
+            text_color="white"
+        ).place(relx=0.5, rely=0.5, anchor="center")
+
+        # Bloc identité + contact
+        info = ctk.CTkFrame(header, fg_color="transparent")
+        info.grid(row=0, column=1, sticky="ew", pady=14)
+
+        name = f"{(p.get('prenom') or '').strip()} {(p.get('nom') or '').strip()}".strip()
+        if not name:
+            name = "Profil incomplet"
+        ctk.CTkLabel(
+            info, text=name,
+            font=ctk.CTkFont(size=16, weight="bold"),
+            text_color=THEME.text_primary, anchor="w"
+        ).pack(anchor="w")
+
+        role = (p.get("poste_recherche") or "—") or "—"
+        years = int(exp.get("annees") or 0)
+        role_line = role
+        if years:
+            role_line += f"  ·  {years} an{'s' if years > 1 else ''} d'expérience"
+        ctk.CTkLabel(
+            info, text=role_line,
+            font=ctk.CTkFont(size=12),
+            text_color=THEME.text_secondary, anchor="w"
+        ).pack(anchor="w", pady=(2, 0))
+
+        contact_parts = []
+        if p.get("telephone"):
+            contact_parts.append(p["telephone"])
+        if p.get("linkedin"):
+            ln = p["linkedin"]
+            if ln.startswith("http"):
+                ln = ln.replace("https://", "").replace("http://", "")
+            contact_parts.append(ln)
+        if contact_parts:
+            ctk.CTkLabel(
+                info, text="  ·  ".join(contact_parts),
+                font=ctk.CTkFont(size=11),
+                text_color=THEME.text_muted, anchor="w"
+            ).pack(anchor="w", pady=(3, 0))
+
+        # Bloc complétude à droite
+        comp = ctk.CTkFrame(header, fg_color="transparent")
+        comp.grid(row=0, column=2, padx=(0, 18), pady=14, sticky="e")
+
+        score, missing = self._compute_profile_score(p, exp, docs)
+        color = (THEME.green_ok if score >= 80
+                 else THEME.amber if score >= 50
+                 else THEME.red_danger)
+
+        top_row = ctk.CTkFrame(comp, fg_color="transparent")
+        top_row.pack(anchor="e")
+        ctk.CTkLabel(
+            top_row, text="Complétude",
+            font=ctk.CTkFont(size=10),
+            text_color=THEME.text_secondary
+        ).pack(side="left", padx=(0, 70))
+        ctk.CTkLabel(
+            top_row, text=f"{score}%",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            text_color=color
+        ).pack(side="left")
+
+        bar = ctk.CTkProgressBar(
+            comp, width=150, height=6,
+            fg_color=THEME.bg_panel_alt,
+            progress_color=color
+        )
+        bar.set(score / 100.0)
+        bar.pack(pady=(5, 3), anchor="e")
+
+        if missing:
+            ctk.CTkLabel(
+                comp, text=f"Manque : {missing}",
+                font=ctk.CTkFont(size=10),
+                text_color=THEME.text_muted
+            ).pack(anchor="e")
+
+    def _make_card(self, parent, title, action_widget=None):
+        """Crée une card avec titre + zone de contenu. Renvoie la zone."""
+        card = ctk.CTkFrame(
+            parent, fg_color=THEME.bg_panel,
+            border_color=THEME.border, border_width=1, corner_radius=8
+        )
+        card.pack(fill="x", pady=(0, 12))
+
+        head = ctk.CTkFrame(card, fg_color="transparent")
+        head.pack(fill="x", padx=14, pady=(12, 6))
+        ctk.CTkLabel(
+            head, text=title.upper(),
+            font=ctk.CTkFont(size=11, weight="bold"),
+            text_color=THEME.text_secondary
+        ).pack(side="left")
+        if action_widget is not None:
+            action_widget.pack(in_=head, side="right")
+
+        body = ctk.CTkFrame(card, fg_color="transparent")
+        body.pack(fill="both", expand=True, padx=14, pady=(0, 12))
+        return body
+
+    def _build_identity_card(self, parent, p):
+        body = self._make_card(parent, "Identité")
+        body.grid_columnconfigure(1, weight=1)
 
         fields = [
-            ("Prénom",           "prenom",          False),
-            ("Nom",              "nom",             False),
-            ("Téléphone",        "telephone",       False),
-            ("LinkedIn (URL)",   "linkedin",        False),
-            ("Poste recherché",  "poste_recherche", False),
+            ("Prénom",     "prenom"),
+            ("Nom",        "nom"),
+            ("Téléphone",  "telephone"),
+            ("LinkedIn",   "linkedin"),
+            ("Poste",      "poste_recherche"),
         ]
         self.profile_entries = {}
-        for i, (label, key, _) in enumerate(fields, start=1):
-            ctk.CTkLabel(form, text=label).grid(
-                row=i, column=0, sticky="w", padx=(10, 15), pady=5)
-            e = ctk.CTkEntry(form, height=36)
+        for i, (lbl, key) in enumerate(fields):
+            ctk.CTkLabel(
+                body, text=lbl, font=ctk.CTkFont(size=12),
+                text_color=THEME.text_secondary, width=78, anchor="w"
+            ).grid(row=i, column=0, sticky="w", padx=(0, 10), pady=4)
+            e = ctk.CTkEntry(body, height=30, font=ctk.CTkFont(size=12))
             e.insert(0, p.get(key, ""))
-            e.grid(row=i, column=1, sticky="ew", pady=5, padx=(0, 5))
+            e.grid(row=i, column=1, sticky="ew", pady=4)
             self.profile_entries[key] = e
 
-        # Section expérience
-        row = len(fields) + 2
-        ctk.CTkLabel(form, text="EXPÉRIENCE",
-                     font=ctk.CTkFont(size=14, weight="bold")
-                     ).grid(row=row, column=0, columnspan=2, sticky="w",
-                            padx=5, pady=(15, 8))
+    def _build_experience_card(self, parent, exp):
+        body = self._make_card(parent, "Expérience")
+        body.grid_columnconfigure(0, weight=1)
 
-        ctk.CTkLabel(form, text="Années").grid(
-            row=row+1, column=0, sticky="w", padx=(10, 15), pady=5)
-        self.exp_annees_entry = ctk.CTkEntry(form, height=36)
-        self.exp_annees_entry.insert(0, str(exp.get("annees", 0)))
-        self.exp_annees_entry.grid(row=row+1, column=1, sticky="ew", pady=5, padx=(0, 5))
-
-        ctk.CTkLabel(form, text="Compétences\n(virgules)").grid(
-            row=row+2, column=0, sticky="nw", padx=(10, 15), pady=5)
-        self.exp_comp_entry = ctk.CTkEntry(form, height=36)
-        self.exp_comp_entry.insert(0, ", ".join(exp.get("competences", [])))
-        self.exp_comp_entry.grid(row=row+2, column=1, sticky="ew", pady=5, padx=(0, 5))
-
-        ctk.CTkLabel(form, text="Langues\n(virgules)").grid(
-            row=row+3, column=0, sticky="nw", padx=(10, 15), pady=5)
-        self.exp_lang_entry = ctk.CTkEntry(form, height=36)
-        self.exp_lang_entry.insert(0, ", ".join(exp.get("langues", [])))
-        self.exp_lang_entry.grid(row=row+3, column=1, sticky="ew", pady=5, padx=(0, 5))
-
-        # Section CV
-        row += 4
-        docs = self.cfg.setdefault("documents", {})
-        ctk.CTkLabel(form, text="CV",
-                     font=ctk.CTkFont(size=14, weight="bold")
-                     ).grid(row=row, column=0, columnspan=2, sticky="w",
-                            padx=5, pady=(15, 8))
-
-        cv_row = ctk.CTkFrame(form, fg_color="transparent")
-        cv_row.grid(row=row+1, column=0, columnspan=2, sticky="ew", pady=6, padx=(5, 5))
-        cv_row.grid_columnconfigure(1, weight=1)
-
-        ctk.CTkLabel(cv_row, text="Fichier :").grid(row=0, column=0, sticky="w", padx=(5, 15))
-        cv_path = docs.get("cv_path", "")
-        self.cv_file_label = ctk.CTkLabel(
-            cv_row,
-            text=(os.path.basename(cv_path) if cv_path and os.path.exists(cv_path)
-                  else "Aucun CV importé"),
-            text_color=(THEME.green_ok if cv_path and os.path.exists(cv_path) else THEME.text_muted),
-            anchor="w",
-        )
-        self.cv_file_label.grid(row=0, column=1, sticky="ew", padx=(0, 10))
-
-        ctk.CTkButton(
-            cv_row,
-            text=("Remplacer" if cv_path and os.path.exists(cv_path) else "Importer CV"),
-            width=140, command=self._import_cv,
-            fg_color=THEME.accent, hover_color=THEME.accent_hover
-        ).grid(row=0, column=2, padx=(0, 5))
-        self.cv_replace_btn = None
-
-        cv_actions = ctk.CTkFrame(form, fg_color="transparent")
-        cv_actions.grid(row=row+2, column=0, columnspan=2, sticky="ew", pady=(0, 4), padx=(5, 5))
-        ctk.CTkButton(
-            cv_actions, text="Remplir depuis le CV",
-            command=self._autofill_from_cv, height=32,
-            fg_color=THEME.bg_panel_alt, hover_color=THEME.bg_hover,
-            text_color=THEME.text_primary
-        ).pack(side="left", padx=(0, 6))
-        ctk.CTkButton(
-            cv_actions, text="Analyser ATS",
-            command=self._analyze_ats, height=32,
-            fg_color=THEME.bg_panel_alt, hover_color=THEME.bg_hover,
-            text_color=THEME.text_primary
-        ).pack(side="left", padx=(0, 6))
-
-        # Section Lettre de motivation (fichier)
-        row += 3
-        ctk.CTkLabel(form, text="LETTRE DE MOTIVATION",
-                     font=ctk.CTkFont(size=14, weight="bold")
-                     ).grid(row=row, column=0, columnspan=2, sticky="w",
-                            padx=5, pady=(15, 8))
-        lm_row = ctk.CTkFrame(form, fg_color="transparent")
-        lm_row.grid(row=row+1, column=0, columnspan=2, sticky="ew", pady=6, padx=(5, 5))
-        lm_row.grid_columnconfigure(1, weight=1)
-        ctk.CTkLabel(lm_row, text="Fichier :").grid(row=0, column=0, sticky="w", padx=(5, 15))
-        lm_path = docs.get("lettre_path", "")
-        self.lm_file_label = ctk.CTkLabel(
-            lm_row,
-            text=(os.path.basename(lm_path) if lm_path and os.path.exists(lm_path)
-                  else "Aucune lettre importée"),
-            text_color=(THEME.green_ok if lm_path and os.path.exists(lm_path) else THEME.text_muted),
-            anchor="w",
-        )
-        self.lm_file_label.grid(row=0, column=1, sticky="ew", padx=(0, 10))
-        ctk.CTkButton(
-            lm_row,
-            text=("Remplacer" if lm_path and os.path.exists(lm_path) else "Importer lettre"),
-            width=140, command=self._import_lettre,
-            fg_color=THEME.accent, hover_color=THEME.accent_hover
-        ).grid(row=0, column=2, padx=(0, 5))
-
-        # Lettre type (texte brut — utilisé si aucun fichier)
-        row += 2
-        lettre_header = ctk.CTkFrame(form, fg_color="transparent")
-        lettre_header.grid(row=row, column=0, columnspan=2,
-                           sticky="ew", padx=5, pady=(15, 8))
-        lettre_header.grid_columnconfigure(0, weight=1)
+        # Années
+        years_row = ctk.CTkFrame(body, fg_color="transparent")
+        years_row.grid(row=0, column=0, sticky="ew", pady=(0, 8))
         ctk.CTkLabel(
-            lettre_header, text="LETTRE TYPE",
-            font=ctk.CTkFont(size=14, weight="bold")
-        ).grid(row=0, column=0, sticky="w")
+            years_row, text="Années", font=ctk.CTkFont(size=12),
+            text_color=THEME.text_secondary, width=78, anchor="w"
+        ).pack(side="left", padx=(0, 10))
+        self.exp_annees_entry = ctk.CTkEntry(years_row, height=30, width=80,
+                                              font=ctk.CTkFont(size=12))
+        self.exp_annees_entry.insert(0, str(exp.get("annees", 0)))
+        self.exp_annees_entry.pack(side="left")
+
+        # Compétences
+        ctk.CTkLabel(
+            body, text="Compétences", font=ctk.CTkFont(size=12),
+            text_color=THEME.text_secondary, anchor="w"
+        ).grid(row=1, column=0, sticky="w", pady=(2, 4))
+        self.exp_comp_chips = ChipsEditor(
+            body,
+            values=exp.get("competences", []),
+            placeholder="+ ajouter",
+            height=70
+        )
+        self.exp_comp_chips.grid(row=2, column=0, sticky="ew", pady=(0, 8))
+
+        # Langues
+        ctk.CTkLabel(
+            body, text="Langues", font=ctk.CTkFont(size=12),
+            text_color=THEME.text_secondary, anchor="w"
+        ).grid(row=3, column=0, sticky="w", pady=(2, 4))
+        self.exp_lang_chips = ChipsEditor(
+            body,
+            values=exp.get("langues", []),
+            placeholder="+ ajouter",
+            height=50
+        )
+        self.exp_lang_chips.grid(row=4, column=0, sticky="ew")
+
+    def _build_cv_card(self, parent, docs):
+        body = self._make_card(parent, "CV")
+
+        cv_path = docs.get("cv_path", "")
+        has_cv = bool(cv_path and os.path.exists(cv_path))
+
+        # Preview : icône PDF + métadonnées
+        preview = ctk.CTkFrame(
+            body, fg_color=THEME.bg,
+            border_color=THEME.border, border_width=1, corner_radius=6
+        )
+        preview.pack(fill="x", pady=(0, 8))
+
+        icon = ctk.CTkFrame(
+            preview, width=40, height=50,
+            fg_color=THEME.bg_panel_alt,
+            border_color=THEME.border, border_width=1, corner_radius=4
+        )
+        icon.pack(side="left", padx=(10, 10), pady=10)
+        icon.pack_propagate(False)
+        ext = (os.path.splitext(cv_path)[1].lstrip(".").upper() or "?") if has_cv else "—"
+        ctk.CTkLabel(
+            icon, text=ext, font=ctk.CTkFont(size=10, weight="bold"),
+            text_color=THEME.accent
+        ).place(relx=0.5, rely=0.5, anchor="center")
+
+        info = ctk.CTkFrame(preview, fg_color="transparent")
+        info.pack(side="left", fill="both", expand=True, pady=8, padx=(0, 10))
+
+        # Nom fichier (stocké pour update après import)
+        self.cv_file_label = ctk.CTkLabel(
+            info,
+            text=(os.path.basename(cv_path) if has_cv else "Aucun CV importé"),
+            text_color=(THEME.text_primary if has_cv else THEME.text_muted),
+            font=ctk.CTkFont(size=12, weight="bold"),
+            anchor="w"
+        )
+        self.cv_file_label.pack(anchor="w", fill="x")
+
+        # Métadonnées
+        meta = ""
+        if has_cv:
+            try:
+                size = os.path.getsize(cv_path)
+                size_str = (f"{size // 1024} Ko" if size < 1_048_576
+                            else f"{size / 1_048_576:.1f} Mo")
+                mtime = datetime.datetime.fromtimestamp(os.path.getmtime(cv_path))
+                age_days = (datetime.datetime.now() - mtime).days
+                if age_days < 1:
+                    age = "aujourd'hui"
+                elif age_days < 30:
+                    age = f"il y a {age_days} j"
+                else:
+                    age = mtime.strftime("%b %Y")
+                wc = len((docs.get("cv_text") or "").split())
+                meta = f"{size_str}  ·  {wc} mots  ·  importé {age}"
+            except Exception:
+                meta = ""
+        if meta:
+            ctk.CTkLabel(
+                info, text=meta, font=ctk.CTkFont(size=10),
+                text_color=THEME.text_muted, anchor="w"
+            ).pack(anchor="w")
+
+        # Score ATS
+        score, color = self._compute_cv_ats(docs)
+        if score is not None:
+            ats_row = ctk.CTkFrame(
+                body, fg_color=THEME.bg_panel_alt, corner_radius=6
+            )
+            ats_row.pack(fill="x", pady=(0, 8))
+            left_box = ctk.CTkFrame(ats_row, fg_color="transparent")
+            left_box.pack(side="left", padx=12, pady=8)
+            ctk.CTkLabel(
+                left_box, text="SCORE ATS",
+                font=ctk.CTkFont(size=10, weight="bold"),
+                text_color=THEME.text_secondary
+            ).pack(anchor="w")
+            ctk.CTkLabel(
+                left_box, text="Compatible avec les robots de tri",
+                font=ctk.CTkFont(size=10),
+                text_color=THEME.text_muted
+            ).pack(anchor="w")
+            ctk.CTkLabel(
+                ats_row, text=str(score),
+                font=ctk.CTkFont(size=20, weight="bold"),
+                text_color=color
+            ).pack(side="right", padx=14, pady=6)
+
+        # Actions
+        btn_row = ctk.CTkFrame(body, fg_color="transparent")
+        btn_row.pack(fill="x")
+        btn_row.grid_columnconfigure((0, 1), weight=1)
         ctk.CTkButton(
-            lettre_header, text="Générer lettre",
+            btn_row,
+            text=("Remplacer" if has_cv else "Importer CV"),
+            command=self._import_cv, height=30,
+            fg_color=THEME.accent, hover_color=THEME.accent_hover,
+            font=ctk.CTkFont(size=12)
+        ).grid(row=0, column=0, sticky="ew", padx=(0, 4))
+        ctk.CTkButton(
+            btn_row, text="Remplir depuis CV",
+            command=self._autofill_from_cv, height=30,
+            fg_color=THEME.bg_panel_alt, hover_color=THEME.bg_hover,
+            text_color=THEME.text_primary,
+            font=ctk.CTkFont(size=12)
+        ).grid(row=0, column=1, sticky="ew", padx=(4, 0))
+        ctk.CTkButton(
+            body, text="Analyse ATS détaillée",
+            command=self._analyze_ats, height=28,
+            fg_color=THEME.bg_panel_alt, hover_color=THEME.bg_hover,
+            text_color=THEME.text_primary,
+            font=ctk.CTkFont(size=12)
+        ).pack(fill="x", pady=(6, 0))
+
+    def _build_lettre_card(self, parent, p, docs):
+        # Bouton Générer dans le header de la card
+        gen_btn = ctk.CTkButton(
+            None, text="Générer via IA",
             command=lambda: self._open_lettre_window({
                 "titre": self.cfg.get("profil", {}).get("poste_recherche", ""),
                 "poste": self.cfg.get("profil", {}).get("poste_recherche", ""),
                 "entreprise": "",
                 "description": ""
             }),
-            height=32, width=180,
+            height=24, width=110,
             fg_color=THEME.bg_panel_alt, hover_color=THEME.bg_hover,
-            text_color=THEME.text_primary
-        ).grid(row=0, column=1, sticky="e", padx=(10, 0))
+            text_color=THEME.text_primary,
+            font=ctk.CTkFont(size=11)
+        )
+        body = self._make_card(parent, "Lettre type", action_widget=gen_btn)
 
-        ctk.CTkLabel(form, text="Base texte\n(optionnel)").grid(
-            row=row+1, column=0, sticky="nw", padx=(10, 15), pady=6)
-        self.lettre_box = ctk.CTkTextbox(form, height=160, wrap="word")
-        self.lettre_box.grid(row=row+1, column=1, sticky="ew", pady=6, padx=(0, 5))
+        # Note explicative
+        ctk.CTkLabel(
+            body,
+            text="Texte de base utilisé si aucun fichier lettre.",
+            font=ctk.CTkFont(size=11),
+            text_color=THEME.text_muted, anchor="w"
+        ).pack(anchor="w", pady=(0, 4))
+
+        self.lettre_box = ctk.CTkTextbox(body, height=120, wrap="word",
+                                          font=ctk.CTkFont(size=12))
+        self.lettre_box.pack(fill="x", pady=(0, 8))
         self.lettre_box.insert("1.0", p.get("lettre_type", ""))
         self._isolate_textbox_scroll(self.lettre_box)
 
-        # Note info
-        ctk.CTkLabel(
-            self.main,
-            text="Email & ville viennent de Paramètres (Gmail) et de Recherche (localisation).",
-            text_color="gray", font=ctk.CTkFont(size=11), justify="left"
-        ).pack(anchor="w", pady=(8, 0))
+        # Lettre fichier (option alternative)
+        lm_path = docs.get("lettre_path", "")
+        has_lm = bool(lm_path and os.path.exists(lm_path))
 
-        btn_row = ctk.CTkFrame(self.main, fg_color="transparent")
-        btn_row.pack(fill="x", pady=(10, 0))
-
+        file_row = ctk.CTkFrame(body, fg_color="transparent")
+        file_row.pack(fill="x")
+        file_row.grid_columnconfigure(0, weight=1)
+        self.lm_file_label = ctk.CTkLabel(
+            file_row,
+            text=("OU " + os.path.basename(lm_path) if has_lm
+                  else "OU importer un .pdf / .docx"),
+            font=ctk.CTkFont(size=11),
+            text_color=(THEME.green_ok if has_lm else THEME.text_muted),
+            anchor="w"
+        )
+        self.lm_file_label.grid(row=0, column=0, sticky="ew")
         ctk.CTkButton(
-            btn_row, text="Sauvegarder le profil",
-            image=theme.ctk_icon(theme.icon_save, size=16, color="#FFFFFF"),
-            compound="left",
-            command=self.save_profile, height=42, corner_radius=20,
-            fg_color=THEME.accent, hover_color=THEME.accent_hover,
-            font=ctk.CTkFont(size=14, weight="bold")
-        ).pack(side="left", expand=True, fill="x")
+            file_row,
+            text=("Remplacer" if has_lm else "Importer fichier"),
+            command=self._import_lettre, height=26, width=130,
+            fg_color=THEME.bg_panel_alt, hover_color=THEME.bg_hover,
+            text_color=THEME.text_primary,
+            font=ctk.CTkFont(size=11)
+        ).grid(row=0, column=1, padx=(8, 0))
 
     def _save_profile_silent(self):
         """Persiste le profil sans popup ni rebuild (utilisé par auto-save
@@ -4128,15 +4531,15 @@ class App(ctk.CTk):
         except (ValueError, AttributeError, Exception):
             exp.setdefault("annees", 0)
         try:
-            exp["competences"] = [
-                s.strip() for s in self.exp_comp_entry.get().split(",") if s.strip()
-            ]
+            if (hasattr(self, "exp_comp_chips")
+                    and self.exp_comp_chips.winfo_exists()):
+                exp["competences"] = self.exp_comp_chips.get_values()
         except Exception:
             pass
         try:
-            exp["langues"] = [
-                s.strip() for s in self.exp_lang_entry.get().split(",") if s.strip()
-            ]
+            if (hasattr(self, "exp_lang_chips")
+                    and self.exp_lang_chips.winfo_exists()):
+                exp["langues"] = self.exp_lang_chips.get_values()
         except Exception:
             pass
 
@@ -4310,12 +4713,16 @@ class App(ctk.CTk):
         if "annees" in info:
             self.exp_annees_entry.delete(0, "end")
             self.exp_annees_entry.insert(0, str(info["annees"]))
-        if "competences" in info:
-            self.exp_comp_entry.delete(0, "end")
-            self.exp_comp_entry.insert(0, ", ".join(info["competences"]))
-        if "langues" in info:
-            self.exp_lang_entry.delete(0, "end")
-            self.exp_lang_entry.insert(0, ", ".join(info["langues"]))
+        if "competences" in info and hasattr(self, "exp_comp_chips"):
+            try:
+                self.exp_comp_chips.set_values(info["competences"])
+            except Exception:
+                pass
+        if "langues" in info and hasattr(self, "exp_lang_chips"):
+            try:
+                self.exp_lang_chips.set_values(info["langues"])
+            except Exception:
+                pass
 
         # Email → on l'enregistre côté Gmail (info du CV ≠ forcément mail d'envoi)
         detected = ", ".join(f"{k}={v}" for k, v in info.items() if k not in ("competences", "langues"))
@@ -4414,242 +4821,647 @@ class App(ctk.CTk):
         self._remember_tab("settings")
         self._clear_main()
 
-        ctk.CTkLabel(
-            self.main, text="PARAMÈTRES",
-            font=ctk.CTkFont(size=20, weight="bold")
-        ).pack(anchor="w", pady=(0, 10))
-
-        scroll = ctk.CTkScrollableFrame(self.main)
-        scroll.pack(fill="both", expand=True)
-        scroll.grid_columnconfigure(1, weight=1)
-
         api = self.cfg.setdefault("api", {})
         rech = self.cfg.setdefault("recherche", {})
+        srcs = self.cfg.setdefault("sources", {})
 
-        # ── Section IA ─────────────────────────────────────────
+        # Header
+        head = ctk.CTkFrame(self.main, fg_color="transparent")
+        head.pack(fill="x", pady=(0, 12))
         ctk.CTkLabel(
-            scroll, text="INTELLIGENCE ARTIFICIELLE",
-            font=ctk.CTkFont(size=15, weight="bold")
-        ).grid(row=0, column=0, columnspan=2, sticky="w", padx=5, pady=(15, 5))
-
-        ctk.CTkLabel(
-            scroll,
-            text="Par défaut : Ollama local (gratuit). Renseigne une clé pour OpenAI/Claude si tu veux plus rapide/qualitatif.",
-            text_color="gray", font=ctk.CTkFont(size=11)
-        ).grid(row=1, column=0, columnspan=2, sticky="w", padx=5, pady=(0, 6))
-
-        ctk.CTkLabel(scroll, text="Moteur IA").grid(
-            row=2, column=0, sticky="w", padx=(10, 15), pady=5)
-
-        ai_engines = ["ollama", "openai", "claude", "template"]
-        current_engine = api.get("ai_engine", "ollama")
-        self.ai_engine_var = ctk.StringVar(value=current_engine)
-        ctk.CTkOptionMenu(
-            scroll, variable=self.ai_engine_var,
-            values=ai_engines, width=200, height=36
-        ).grid(row=2, column=1, sticky="w", pady=5, padx=(0, 5))
-
-        ctk.CTkLabel(scroll, text="Modèle Ollama").grid(
-            row=3, column=0, sticky="w", padx=(10, 15), pady=5)
-        self.ollama_entry = ctk.CTkEntry(scroll, height=36)
-        self.ollama_entry.insert(0, api.get("ollama_model", "gemma2:2b"))
-        self.ollama_entry.grid(row=3, column=1, sticky="ew", pady=5, padx=(0, 5))
-
-        ctk.CTkLabel(scroll, text="Clé API OpenAI (optionnel)").grid(
-            row=4, column=0, sticky="w", padx=(10, 15), pady=5)
-        self.openai_entry = ctk.CTkEntry(scroll, height=36, show="*")
-        self.openai_entry.insert(0, api.get("openai_key", ""))
-        self.openai_entry.grid(row=4, column=1, sticky="ew", pady=5, padx=(0, 5))
-
-        ctk.CTkLabel(scroll, text="Clé API Anthropic (optionnel)").grid(
-            row=5, column=0, sticky="w", padx=(10, 15), pady=5)
-        self.anthropic_entry = ctk.CTkEntry(scroll, height=36, show="*")
-        self.anthropic_entry.insert(0, api.get("anthropic_key", ""))
-        self.anthropic_entry.grid(row=5, column=1, sticky="ew", pady=5, padx=(0, 5))
-
-        # Boutons IA
-        ai_btn_frame = ctk.CTkFrame(scroll, fg_color="transparent")
-        ai_btn_frame.grid(row=6, column=0, columnspan=2, sticky="w", padx=5, pady=(5, 2))
-
-        ctk.CTkButton(
-            ai_btn_frame, text="Tester la connexion IA",
-            command=self._test_ai_connection,
-            height=34, width=200,
-            fg_color=THEME.bg_panel_alt, hover_color=THEME.bg_hover,
+            head, text="Paramètres",
+            font=ctk.CTkFont(size=20, weight="bold"),
             text_color=THEME.text_primary
-        ).pack(side="left", padx=(0, 6))
+        ).pack(side="left")
+        ctk.CTkLabel(
+            head, text="Comptes, modèle IA, préférences de recherche.",
+            font=ctk.CTkFont(size=12),
+            text_color=THEME.text_muted
+        ).pack(side="left", padx=(12, 0), pady=(4, 0))
 
-        # Bouton Install Ollama
+        # CTkTabview
+        tabs = ctk.CTkTabview(
+            self.main, fg_color=THEME.bg,
+            segmented_button_fg_color=THEME.bg_panel_alt,
+            segmented_button_selected_color=THEME.accent,
+            segmented_button_selected_hover_color=THEME.accent_hover,
+            segmented_button_unselected_color=THEME.bg_panel_alt,
+            segmented_button_unselected_hover_color=THEME.bg_hover,
+            text_color=THEME.text_primary,
+        )
+        tabs.pack(fill="both", expand=True, pady=(0, 0))
+
+        tab_comptes = tabs.add("Comptes")
+        tab_ia      = tabs.add("IA")
+        tab_rech    = tabs.add("Recherche")
+        tab_maj     = tabs.add("Mises à jour")
+
+        # ── Onglet Comptes ──
+        self._build_settings_comptes(tab_comptes, api, srcs)
+
+        # ── Onglet IA ──
+        self._build_settings_ia(tab_ia, api)
+
+        # ── Onglet Recherche ──
+        self._build_settings_recherche(tab_rech, rech)
+
+        # ── Onglet MAJ ──
+        self._build_settings_maj(tab_maj)
+
+        # ── Footer sticky : Sauvegarder ──
+        footer = ctk.CTkFrame(self.main, fg_color="transparent")
+        footer.pack(fill="x", pady=(12, 0))
+        ctk.CTkLabel(
+            footer,
+            text="Modifications auto-sauvegardées au changement de page.",
+            font=ctk.CTkFont(size=11),
+            text_color=THEME.text_muted
+        ).pack(side="left")
         ctk.CTkButton(
-            ai_btn_frame, text="Installer Ollama",
-            command=self._magic_install_ollama,
-            height=34, width=240,
-            fg_color=THEME.accent, hover_color=THEME.accent_hover
+            footer, text="Sauvegarder",
+            image=theme.ctk_icon(theme.icon_save, size=14, color="#FFFFFF"),
+            compound="left",
+            command=self.save_settings, height=36, width=160, corner_radius=18,
+            fg_color=THEME.accent, hover_color=THEME.accent_hover,
+            font=ctk.CTkFont(size=13, weight="bold")
+        ).pack(side="right")
+
+    # ── Helpers status / connexion ──────────────────────────────
+    def _is_gmail_configured(self, api):
+        return bool((api.get("gmail_user") or "").strip()
+                    and (api.get("gmail_password") or "").strip())
+
+    def _is_ft_configured(self, api):
+        return bool((api.get("ft_client_id") or "").strip()
+                    and (api.get("ft_client_secret") or "").strip())
+
+    def _is_adzuna_configured(self, api):
+        return bool((api.get("adzuna_app_id") or "").strip()
+                    and (api.get("adzuna_app_key") or "").strip())
+
+    def _is_openai_configured(self, api):
+        return bool((api.get("openai_key") or "").strip())
+
+    def _is_anthropic_configured(self, api):
+        return bool((api.get("anthropic_key") or "").strip())
+
+    def _is_ollama_configured(self):
+        try:
+            from ollama_installer import is_ollama_installed, is_ollama_running
+            return is_ollama_installed() and is_ollama_running()
+        except Exception:
+            return False
+
+    def _service_card(self, parent, *, logo, name, sub,
+                      status_text, status_color,
+                      actions=None, expanded_body=None):
+        """Construit une card de service avec status + boutons.
+
+        actions : liste de (label, callback, primary=False)
+        expanded_body : callable(frame) qui remplit le body du dépliage
+        """
+        card = ctk.CTkFrame(
+            parent, fg_color=THEME.bg_panel,
+            border_color=THEME.border, border_width=1, corner_radius=8
+        )
+        card.pack(fill="x", pady=(0, 10))
+
+        top = ctk.CTkFrame(card, fg_color="transparent")
+        top.pack(fill="x", padx=14, pady=12)
+
+        # Logo carré
+        logo_box = ctk.CTkFrame(
+            top, width=34, height=34,
+            fg_color=THEME.bg_panel_alt, corner_radius=8
+        )
+        logo_box.pack(side="left", padx=(0, 12))
+        logo_box.pack_propagate(False)
+        ctk.CTkLabel(
+            logo_box, text=logo,
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color=THEME.text_secondary
+        ).place(relx=0.5, rely=0.5, anchor="center")
+
+        # Nom + description
+        info = ctk.CTkFrame(top, fg_color="transparent")
+        info.pack(side="left", fill="x", expand=True)
+        ctk.CTkLabel(
+            info, text=name, font=ctk.CTkFont(size=13, weight="bold"),
+            text_color=THEME.text_primary, anchor="w"
+        ).pack(anchor="w")
+        ctk.CTkLabel(
+            info, text=sub, font=ctk.CTkFont(size=11),
+            text_color=THEME.text_secondary, anchor="w"
+        ).pack(anchor="w", pady=(1, 0))
+
+        # Status (dot + texte)
+        status = ctk.CTkFrame(top, fg_color="transparent")
+        status.pack(side="left", padx=(10, 14))
+        dot = ctk.CTkFrame(status, width=8, height=8, corner_radius=4,
+                            fg_color=status_color)
+        dot.pack(side="left", padx=(0, 6), pady=(2, 0))
+        dot.pack_propagate(False)
+        ctk.CTkLabel(
+            status, text=status_text, font=ctk.CTkFont(size=11),
+            text_color=status_color
         ).pack(side="left")
 
-        self.ai_test_label = ctk.CTkLabel(scroll, text="", text_color="gray")
-        self.ai_test_label.grid(row=7, column=0, columnspan=2, sticky="w", padx=10, pady=(0, 5))
+        # Actions
+        if actions:
+            btn_box = ctk.CTkFrame(top, fg_color="transparent")
+            btn_box.pack(side="right")
+            for action in actions:
+                label, cmd = action[0], action[1]
+                primary = len(action) > 2 and action[2]
+                ctk.CTkButton(
+                    btn_box, text=label, command=cmd,
+                    height=28, width=92, corner_radius=6,
+                    fg_color=(THEME.accent if primary else THEME.bg_panel_alt),
+                    hover_color=(THEME.accent_hover if primary else THEME.bg_hover),
+                    text_color=(("white" if primary else THEME.text_primary)),
+                    font=ctk.CTkFont(size=11)
+                ).pack(side="left", padx=(0, 6))
 
-        # ── Section Gmail ──────────────────────────────────────
+        # Body déplié
+        if expanded_body is not None:
+            sep = ctk.CTkFrame(card, height=1, fg_color=THEME.border)
+            sep.pack(fill="x", padx=14)
+            body = ctk.CTkFrame(card, fg_color="transparent")
+            body.pack(fill="x", padx=14, pady=(10, 12))
+            try:
+                expanded_body(body)
+            except Exception as e:
+                ctk.CTkLabel(
+                    body, text=f"Erreur : {e}",
+                    text_color=THEME.red_danger
+                ).pack()
+
+        return card
+
+    def _entry_row(self, parent, label, attr_name, value, show=None,
+                   placeholder=None):
+        """Ligne label + entry à packer dans un body de card.
+        Stocke le widget sous self.<attr_name>."""
+        row = ctk.CTkFrame(parent, fg_color="transparent")
+        row.pack(fill="x", pady=2)
         ctk.CTkLabel(
-            scroll, text="GMAIL",
-            font=ctk.CTkFont(size=15, weight="bold")
-        ).grid(row=8, column=0, columnspan=2, sticky="w", padx=5, pady=(20, 5))
+            row, text=label, font=ctk.CTkFont(size=11),
+            text_color=THEME.text_secondary, width=110, anchor="w"
+        ).pack(side="left")
+        kwargs = {"height": 28, "font": ctk.CTkFont(size=11)}
+        if show:
+            kwargs["show"] = show
+        if placeholder:
+            kwargs["placeholder_text"] = placeholder
+        entry = ctk.CTkEntry(row, **kwargs)
+        entry.insert(0, value or "")
+        entry.pack(side="left", fill="x", expand=True)
+        setattr(self, attr_name, entry)
+        return entry
 
-        ctk.CTkLabel(scroll, text="Adresse Gmail").grid(
-            row=9, column=0, sticky="w", padx=(10, 15), pady=5)
-        self.gmail_user_entry = ctk.CTkEntry(scroll, height=36,
-                                             placeholder_text="ton.adresse@gmail.com")
-        self.gmail_user_entry.insert(0, api.get("gmail_user", ""))
-        self.gmail_user_entry.grid(row=9, column=1, sticky="ew", pady=5, padx=(0, 5))
+    # ── Onglet Comptes ──────────────────────────────────────────
+    def _build_settings_comptes(self, parent, api, srcs):
+        wrap = ctk.CTkScrollableFrame(parent, fg_color="transparent")
+        wrap.pack(fill="both", expand=True, padx=2, pady=10)
 
-        # Mot de passe avec bouton info
-        pwd_lbl_frame = ctk.CTkFrame(scroll, fg_color="transparent")
-        pwd_lbl_frame.grid(row=10, column=0, sticky="w", padx=(10, 15), pady=5)
-        ctk.CTkLabel(pwd_lbl_frame, text="Mot de passe app").pack(side="left")
+        # Comptage
+        configured = sum([
+            self._is_gmail_configured(api),
+            self._is_ft_configured(api),
+            self._is_adzuna_configured(api),
+        ])
+        ctk.CTkLabel(
+            wrap, text=f"{configured} sur 3 services configurés",
+            font=ctk.CTkFont(size=11),
+            text_color=THEME.text_muted
+        ).pack(anchor="w", pady=(0, 8))
+
+        # — Gmail —
+        gmail_ok = self._is_gmail_configured(api)
+        def _gmail_body(b):
+            self._entry_row(b, "Adresse",      "gmail_user_entry",
+                            api.get("gmail_user"),
+                            placeholder="ton.adresse@gmail.com")
+            self._entry_row(b, "Mot de passe", "gmail_pwd_entry",
+                            api.get("gmail_password"), show="*",
+                            placeholder="abcd efgh ijkl mnop")
+            help_row = ctk.CTkFrame(b, fg_color="transparent")
+            help_row.pack(fill="x", pady=(6, 0))
+            ctk.CTkLabel(
+                help_row,
+                text="Le mot de passe est un \"Mot de passe d'application\" Google",
+                font=ctk.CTkFont(size=10),
+                text_color=THEME.text_muted, anchor="w"
+            ).pack(side="left")
+            ctk.CTkButton(
+                help_row, text="Comment ?",
+                command=self._show_gmail_info,
+                height=22, width=80,
+                fg_color="transparent", hover_color=THEME.bg_hover,
+                text_color=THEME.blue_link,
+                font=ctk.CTkFont(size=10, underline=True)
+            ).pack(side="left", padx=(8, 0))
+
+        self._service_card(
+            wrap, logo="G", name="Gmail SMTP",
+            sub=(api.get("gmail_user") if gmail_ok
+                 else "Envoi automatique des candidatures"),
+            status_text="Connecté" if gmail_ok else "Non configuré",
+            status_color=THEME.green_ok if gmail_ok else THEME.amber,
+            actions=([("Tester", self._test_gmail_connection)] if gmail_ok
+                     else None),
+            expanded_body=_gmail_body
+        )
+
+        # — France Travail —
+        ft_ok = self._is_ft_configured(api)
+        def _ft_body(b):
+            self._entry_row(b, "Client ID",     "ft_id_entry",
+                            api.get("ft_client_id"))
+            self._entry_row(b, "Client Secret", "ft_secret_entry",
+                            api.get("ft_client_secret"), show="*")
+            link_row = ctk.CTkFrame(b, fg_color="transparent")
+            link_row.pack(fill="x", pady=(6, 0))
+            ctk.CTkButton(
+                link_row, text="→ Créer un compte sur francetravail.io",
+                command=lambda: self._open_url("https://francetravail.io/"),
+                height=22, width=240,
+                fg_color="transparent", hover_color=THEME.bg_hover,
+                text_color=THEME.blue_link,
+                font=ctk.CTkFont(size=10, underline=True)
+            ).pack(side="left")
+
+        self._service_card(
+            wrap, logo="FT", name="France Travail",
+            sub="Source officielle, gratuite, recommandée",
+            status_text="Connecté" if ft_ok else "Non configuré",
+            status_color=THEME.green_ok if ft_ok else THEME.amber,
+            actions=([("Tester", self._test_ft_connection)] if ft_ok
+                     else None),
+            expanded_body=_ft_body
+        )
+
+        # — Adzuna avec toggle ON/OFF —
+        adz_ok = self._is_adzuna_configured(api)
+        adz_enabled = bool(srcs.get("adzuna", False))
+
+        def _adz_body(b):
+            self._entry_row(b, "App ID",  "adzuna_id_entry",
+                            api.get("adzuna_app_id"))
+            self._entry_row(b, "App Key", "adzuna_key_entry",
+                            api.get("adzuna_app_key"), show="*")
+            link_row = ctk.CTkFrame(b, fg_color="transparent")
+            link_row.pack(fill="x", pady=(6, 0))
+            ctk.CTkButton(
+                link_row, text="→ Inscription gratuite (1000 req/mois)",
+                command=lambda: self._open_url("https://developer.adzuna.com/signup"),
+                height=22, width=240,
+                fg_color="transparent", hover_color=THEME.bg_hover,
+                text_color=THEME.blue_link,
+                font=ctk.CTkFont(size=10, underline=True)
+            ).pack(side="left")
+
+        # Toggle Adzuna ON/OFF — modifie self.cfg directement
+        def _toggle_adzuna():
+            new_val = not bool(self.cfg.setdefault("sources", {}).get("adzuna", False))
+            self.cfg["sources"]["adzuna"] = new_val
+            save_config(self.cfg)
+            # Re-rendre la page pour mettre à jour le statut
+            self.after(50, self.show_settings)
+
+        toggle_label = "Activé" if adz_enabled else "Désactivé"
+        self._service_card(
+            wrap, logo="AZ", name="Adzuna",
+            sub="Facultatif — 1000 req/mois gratuites",
+            status_text=("Activé" if adz_enabled and adz_ok
+                         else "Désactivé" if not adz_enabled
+                         else "Clé manquante"),
+            status_color=(THEME.green_ok if adz_enabled and adz_ok
+                          else THEME.text_muted if not adz_enabled
+                          else THEME.amber),
+            actions=[("Activé" if adz_enabled else "Désactivé",
+                      _toggle_adzuna, adz_enabled)],
+            expanded_body=_adz_body
+        )
+
+    # ── Onglet IA ──────────────────────────────────────────────
+    def _build_settings_ia(self, parent, api):
+        wrap = ctk.CTkScrollableFrame(parent, fg_color="transparent")
+        wrap.pack(fill="both", expand=True, padx=2, pady=10)
+
+        # Moteur principal
+        engine_card = ctk.CTkFrame(
+            wrap, fg_color=THEME.bg_panel,
+            border_color=THEME.border, border_width=1, corner_radius=8
+        )
+        engine_card.pack(fill="x", pady=(0, 12))
+
+        ctk.CTkLabel(
+            engine_card, text="MOTEUR IA ACTIF",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            text_color=THEME.text_secondary
+        ).pack(anchor="w", padx=14, pady=(12, 4))
+        ctk.CTkLabel(
+            engine_card,
+            text="Ollama (local) est gratuit. OpenAI/Claude → plus rapide et qualitatif.",
+            font=ctk.CTkFont(size=11),
+            text_color=THEME.text_muted
+        ).pack(anchor="w", padx=14, pady=(0, 8))
+
+        engine_row = ctk.CTkFrame(engine_card, fg_color="transparent")
+        engine_row.pack(fill="x", padx=14, pady=(0, 12))
+        ai_engines = ["ollama", "openai", "claude", "template"]
+        self.ai_engine_var = ctk.StringVar(value=api.get("ai_engine", "ollama"))
+        ctk.CTkOptionMenu(
+            engine_row, variable=self.ai_engine_var,
+            values=ai_engines, width=200, height=32,
+            fg_color=THEME.bg_panel_alt,
+            button_color=THEME.bg_hover,
+            button_hover_color=THEME.accent
+        ).pack(side="left", padx=(0, 8))
         ctk.CTkButton(
-            pwd_lbl_frame, text="i", width=24, height=24,
-            corner_radius=12, fg_color=THEME.bg_panel_alt, hover_color=THEME.accent,
+            engine_row, text="Tester la connexion",
+            command=self._test_ai_connection,
+            height=32, width=170,
+            fg_color=THEME.bg_panel_alt, hover_color=THEME.bg_hover,
             text_color=THEME.text_primary,
-            font=ctk.CTkFont(size=13, weight="bold"),
-            command=self._show_gmail_info
-        ).pack(side="left", padx=(6, 0))
+            font=ctk.CTkFont(size=12)
+        ).pack(side="left")
+        self.ai_test_label = ctk.CTkLabel(
+            engine_card, text="", font=ctk.CTkFont(size=11),
+            text_color=THEME.text_muted
+        )
+        self.ai_test_label.pack(anchor="w", padx=14, pady=(0, 10))
 
-        self.gmail_pwd_entry = ctk.CTkEntry(scroll, height=36, show="*",
-                                            placeholder_text="abcd efgh ijkl mnop")
-        self.gmail_pwd_entry.insert(0, api.get("gmail_password", ""))
-        self.gmail_pwd_entry.grid(row=10, column=1, sticky="ew", pady=5, padx=(0, 5))
+        # — Ollama —
+        ollama_ok = self._is_ollama_configured()
+        def _ollama_body(b):
+            self._entry_row(b, "Modèle", "ollama_entry",
+                            api.get("ollama_model", "gemma2:2b"),
+                            placeholder="gemma2:2b")
 
-        # ── Section France Travail ─────────────────────────────
+        self._service_card(
+            wrap, logo="OL", name="Ollama (local)",
+            sub="IA gratuite, tourne sur ta machine",
+            status_text="Opérationnel" if ollama_ok else "À installer",
+            status_color=THEME.green_ok if ollama_ok else THEME.amber,
+            actions=[("Installer", self._magic_install_ollama, True)] if not ollama_ok
+                    else [("Réinstaller", self._magic_install_ollama)],
+            expanded_body=_ollama_body
+        )
+
+        # — OpenAI —
+        oai_ok = self._is_openai_configured(api)
+        def _oai_body(b):
+            self._entry_row(b, "Clé API", "openai_entry",
+                            api.get("openai_key"), show="*",
+                            placeholder="sk-...")
+            ctk.CTkButton(
+                b, text="→ Obtenir une clé sur platform.openai.com",
+                command=lambda: self._open_url("https://platform.openai.com/api-keys"),
+                height=22, width=300,
+                fg_color="transparent", hover_color=THEME.bg_hover,
+                text_color=THEME.blue_link,
+                font=ctk.CTkFont(size=10, underline=True)
+            ).pack(anchor="w", pady=(6, 0))
+
+        self._service_card(
+            wrap, logo="AI", name="OpenAI",
+            sub="GPT-4o-mini — payant à l'usage (~0,001$ / candidature)",
+            status_text="Clé configurée" if oai_ok else "Non configuré",
+            status_color=THEME.green_ok if oai_ok else THEME.text_muted,
+            expanded_body=_oai_body
+        )
+
+        # — Anthropic —
+        an_ok = self._is_anthropic_configured(api)
+        def _an_body(b):
+            self._entry_row(b, "Clé API", "anthropic_entry",
+                            api.get("anthropic_key"), show="*",
+                            placeholder="sk-ant-...")
+            ctk.CTkButton(
+                b, text="→ Obtenir une clé sur console.anthropic.com",
+                command=lambda: self._open_url("https://console.anthropic.com/settings/keys"),
+                height=22, width=300,
+                fg_color="transparent", hover_color=THEME.bg_hover,
+                text_color=THEME.blue_link,
+                font=ctk.CTkFont(size=10, underline=True)
+            ).pack(anchor="w", pady=(6, 0))
+
+        self._service_card(
+            wrap, logo="AN", name="Anthropic Claude",
+            sub="Claude Haiku — payant à l'usage (~0,002$ / candidature)",
+            status_text="Clé configurée" if an_ok else "Non configuré",
+            status_color=THEME.green_ok if an_ok else THEME.text_muted,
+            expanded_body=_an_body
+        )
+
+    # ── Onglet Recherche ────────────────────────────────────────
+    def _build_settings_recherche(self, parent, rech):
+        wrap = ctk.CTkScrollableFrame(parent, fg_color="transparent")
+        wrap.pack(fill="both", expand=True, padx=2, pady=10)
+
+        card = ctk.CTkFrame(
+            wrap, fg_color=THEME.bg_panel,
+            border_color=THEME.border, border_width=1, corner_radius=8
+        )
+        card.pack(fill="x", pady=(0, 12))
         ctk.CTkLabel(
-            scroll, text="FRANCE TRAVAIL (API)",
-            font=ctk.CTkFont(size=15, weight="bold")
-        ).grid(row=11, column=0, columnspan=2, sticky="w", padx=5, pady=(20, 5))
-
-        ctk.CTkLabel(scroll, text="Client ID").grid(
-            row=12, column=0, sticky="w", padx=(10, 15), pady=5)
-        self.ft_id_entry = ctk.CTkEntry(scroll, height=36)
-        self.ft_id_entry.insert(0, api.get("ft_client_id", ""))
-        self.ft_id_entry.grid(row=12, column=1, sticky="ew", pady=5, padx=(0, 5))
-
-        ctk.CTkLabel(scroll, text="Client Secret").grid(
-            row=13, column=0, sticky="w", padx=(10, 15), pady=5)
-        self.ft_secret_entry = ctk.CTkEntry(scroll, height=36, show="*")
-        self.ft_secret_entry.insert(0, api.get("ft_client_secret", ""))
-        self.ft_secret_entry.grid(row=13, column=1, sticky="ew", pady=5, padx=(0, 5))
-
-        ctk.CTkButton(
-            scroll, text="Créer un compte France Travail →",
-            command=lambda: self._open_url("https://francetravail.io/"),
-            height=30, width=280,
-            fg_color="gray25", hover_color="gray35"
-        ).grid(row=14, column=0, columnspan=2, sticky="w", padx=10, pady=(0, 5))
-
-        # ── Section Adzuna (rows 15-18) ────────────────────────
+            card, text="FILTRES PAR DÉFAUT",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            text_color=THEME.text_secondary
+        ).pack(anchor="w", padx=14, pady=(12, 4))
         ctk.CTkLabel(
-            scroll, text="ADZUNA (FACULTATIF)",
-            font=ctk.CTkFont(size=15, weight="bold")
-        ).grid(row=15, column=0, columnspan=2, sticky="w", padx=5, pady=(20, 5))
+            card,
+            text="Pré-remplit la page Recherche au lancement.",
+            font=ctk.CTkFont(size=11),
+            text_color=THEME.text_muted
+        ).pack(anchor="w", padx=14, pady=(0, 10))
 
-        ctk.CTkLabel(scroll, text="Adzuna App ID").grid(
-            row=16, column=0, sticky="w", padx=(10, 15), pady=5)
-        self.adzuna_id_entry = ctk.CTkEntry(scroll, height=36)
-        self.adzuna_id_entry.insert(0, api.get("adzuna_app_id", ""))
-        self.adzuna_id_entry.grid(row=16, column=1, sticky="ew", pady=5, padx=(0, 5))
+        body = ctk.CTkFrame(card, fg_color="transparent")
+        body.pack(fill="x", padx=14, pady=(0, 12))
 
-        ctk.CTkLabel(scroll, text="Adzuna App Key").grid(
-            row=17, column=0, sticky="w", padx=(10, 15), pady=5)
-        self.adzuna_key_entry = ctk.CTkEntry(scroll, height=36, show="*")
-        self.adzuna_key_entry.insert(0, api.get("adzuna_app_key", ""))
-        self.adzuna_key_entry.grid(row=17, column=1, sticky="ew", pady=5, padx=(0, 5))
+        self._entry_row(body, "Mots-clés", "mc_entry",
+                        ", ".join(rech.get("mots_cles", [])),
+                        placeholder="python, django, ...")
+        self._entry_row(body, "Localisation", "loc_entry",
+                        rech.get("localisation", ""),
+                        placeholder="Paris")
+        self._entry_row(body, "Rayon (km)", "km_entry",
+                        str(rech.get("rayon_km", 30)))
 
-        ctk.CTkButton(
-            scroll, text="Inscription Adzuna (1000 req/mois gratuites) →",
-            command=lambda: self._open_url("https://developer.adzuna.com/signup"),
-            height=28, width=380,
-            fg_color="gray25", hover_color="gray35"
-        ).grid(row=18, column=0, columnspan=2, sticky="w", padx=10, pady=(0, 5))
-
-        # ── Section Filtres (rows 21-26) ───────────────────────
+        # Contrat — option menu (pas entry, donc pas dans _entry_row)
+        contrat_row = ctk.CTkFrame(body, fg_color="transparent")
+        contrat_row.pack(fill="x", pady=2)
         ctk.CTkLabel(
-            scroll, text="FILTRES PAR DÉFAUT",
-            font=ctk.CTkFont(size=15, weight="bold")
-        ).grid(row=21, column=0, columnspan=2, sticky="w", padx=5, pady=(20, 5))
-
-        ctk.CTkLabel(scroll, text="Mots-clés (virgules)").grid(
-            row=22, column=0, sticky="w", padx=(10, 15), pady=5)
-        self.mc_entry = ctk.CTkEntry(scroll, height=36)
-        self.mc_entry.insert(0, ", ".join(rech.get("mots_cles", [])))
-        self.mc_entry.grid(row=22, column=1, sticky="ew", pady=5, padx=(0, 5))
-
-        ctk.CTkLabel(scroll, text="Localisation").grid(
-            row=23, column=0, sticky="w", padx=(10, 15), pady=5)
-        self.loc_entry = ctk.CTkEntry(scroll, height=36)
-        self.loc_entry.insert(0, rech.get("localisation", ""))
-        self.loc_entry.grid(row=23, column=1, sticky="ew", pady=5, padx=(0, 5))
-
-        ctk.CTkLabel(scroll, text="Rayon (km)").grid(
-            row=24, column=0, sticky="w", padx=(10, 15), pady=5)
-        self.km_entry = ctk.CTkEntry(scroll, height=36)
-        self.km_entry.insert(0, str(rech.get("rayon_km", 30)))
-        self.km_entry.grid(row=24, column=1, sticky="ew", pady=5, padx=(0, 5))
-
-        ctk.CTkLabel(scroll, text="Type de contrat").grid(
-            row=25, column=0, sticky="w", padx=(10, 15), pady=5)
+            contrat_row, text="Type de contrat",
+            font=ctk.CTkFont(size=11),
+            text_color=THEME.text_secondary, width=110, anchor="w"
+        ).pack(side="left")
         self.contrat_var = ctk.StringVar(value=rech.get("contrat", "CDI"))
         ctk.CTkOptionMenu(
-            scroll, variable=self.contrat_var,
+            contrat_row, variable=self.contrat_var,
             values=["Tous", "CDI", "CDD", "Stage", "Alternance", "Freelance"],
-            width=200, height=36
-        ).grid(row=25, column=1, sticky="w", pady=5, padx=(0, 5))
+            width=200, height=28,
+            fg_color=THEME.bg_panel_alt,
+            button_color=THEME.bg_hover,
+            button_hover_color=THEME.accent
+        ).pack(side="left")
 
+        # Card sources
+        sources_card = ctk.CTkFrame(
+            wrap, fg_color=THEME.bg_panel,
+            border_color=THEME.border, border_width=1, corner_radius=8
+        )
+        sources_card.pack(fill="x", pady=(0, 12))
+        ctk.CTkLabel(
+            sources_card, text="SOURCES DE RECHERCHE",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            text_color=THEME.text_secondary
+        ).pack(anchor="w", padx=14, pady=(12, 4))
+        ctk.CTkLabel(
+            sources_card,
+            text="Active / désactive les sites consultés (Indeed, LinkedIn, ...)",
+            font=ctk.CTkFont(size=11),
+            text_color=THEME.text_muted
+        ).pack(anchor="w", padx=14, pady=(0, 10))
         ctk.CTkButton(
-            scroll, text="Gérer les sources de recherche →",
+            sources_card, text="Gérer les sources →",
             command=self.show_sources_manager,
-            height=36, fg_color="gray25", hover_color="gray35"
-        ).grid(row=26, column=0, columnspan=2,
-               sticky="w", padx=5, pady=(15, 5))
+            height=32,
+            fg_color=THEME.accent, hover_color=THEME.accent_hover,
+            font=ctk.CTkFont(size=12)
+        ).pack(anchor="w", padx=14, pady=(0, 12))
 
-        # ── Section Mises à jour (rows 27-30) ──────────────────
+    # ── Onglet Mises à jour ─────────────────────────────────────
+    def _build_settings_maj(self, parent):
+        wrap = ctk.CTkScrollableFrame(parent, fg_color="transparent")
+        wrap.pack(fill="both", expand=True, padx=2, pady=10)
+
+        card = ctk.CTkFrame(
+            wrap, fg_color=THEME.bg_panel,
+            border_color=THEME.border, border_width=1, corner_radius=8
+        )
+        card.pack(fill="x", pady=(0, 12))
+
         ctk.CTkLabel(
-            scroll, text="MISES À JOUR",
-            font=ctk.CTkFont(size=15, weight="bold")
-        ).grid(row=27, column=0, columnspan=2, sticky="w", padx=5, pady=(20, 5))
-
+            card, text="VERSION INSTALLÉE",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            text_color=THEME.text_secondary
+        ).pack(anchor="w", padx=14, pady=(12, 4))
         ctk.CTkLabel(
-            scroll,
-            text=f"Version actuelle : v{APP_VERSION}",
-            text_color="gray", font=ctk.CTkFont(size=12)
-        ).grid(row=28, column=0, columnspan=2, sticky="w", padx=10, pady=(0, 4))
+            card, text=f"v{APP_VERSION}",
+            font=ctk.CTkFont(size=22, weight="bold"),
+            text_color=THEME.text_primary
+        ).pack(anchor="w", padx=14, pady=(0, 4))
+        ctk.CTkLabel(
+            card,
+            text="L'app vérifie les nouvelles versions sur GitHub Releases.",
+            font=ctk.CTkFont(size=11),
+            text_color=THEME.text_muted
+        ).pack(anchor="w", padx=14, pady=(0, 12))
 
-        update_btn_row = ctk.CTkFrame(scroll, fg_color="transparent")
-        update_btn_row.grid(row=29, column=0, columnspan=2,
-                            sticky="w", padx=5, pady=(0, 5))
+        btn_row = ctk.CTkFrame(card, fg_color="transparent")
+        btn_row.pack(fill="x", padx=14, pady=(0, 12))
         ctk.CTkButton(
-            update_btn_row, text="Vérifier les mises à jour",
+            btn_row, text="Vérifier les mises à jour",
             image=theme.ctk_icon(theme.icon_refresh, size=14, color="#FFFFFF"),
             compound="left",
             command=self._check_for_updates,
-            height=38, width=260, corner_radius=19,
+            height=36, width=240, corner_radius=18,
             fg_color=THEME.accent, hover_color=THEME.accent_hover,
-            font=ctk.CTkFont(size=13, weight="bold")
-        ).pack(side="left", padx=(0, 6))
+            font=ctk.CTkFont(size=12, weight="bold")
+        ).pack(side="left")
 
         self._update_status_label = ctk.CTkLabel(
-            scroll, text="", text_color="gray",
-            font=ctk.CTkFont(size=12), wraplength=600, justify="left"
+            card, text="", font=ctk.CTkFont(size=12),
+            text_color=THEME.text_muted, wraplength=600, justify="left"
         )
-        self._update_status_label.grid(row=30, column=0, columnspan=2,
-                                       sticky="w", padx=10, pady=(0, 10))
+        self._update_status_label.pack(anchor="w", padx=14, pady=(0, 12))
 
-        ctk.CTkButton(
-            self.main, text="Sauvegarder les paramètres",
-            image=theme.ctk_icon(theme.icon_save, size=16, color="#FFFFFF"),
-            compound="left",
-            command=self.save_settings, height=42, corner_radius=20,
-            fg_color=THEME.accent, hover_color=THEME.accent_hover,
-            font=ctk.CTkFont(size=14, weight="bold")
-        ).pack(fill="x", pady=(10, 0))
+    # ── Tests de connexion ──────────────────────────────────────
+    def _test_gmail_connection(self):
+        """Test SMTP login sur le compte Gmail configuré."""
+        user = self.cfg.get("api", {}).get("gmail_user", "").strip()
+        pwd  = self.cfg.get("api", {}).get("gmail_password", "").strip()
+        if not user or not pwd:
+            messagebox.showwarning(
+                "Gmail",
+                "Renseigne d'abord l'adresse Gmail et le mot de passe d'application."
+            )
+            return
+
+        def _test():
+            try:
+                import smtplib, ssl
+                ctx = ssl.create_default_context()
+                with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ctx, timeout=8) as s:
+                    s.login(user, pwd)
+                self.after(0, lambda: messagebox.showinfo(
+                    "Gmail OK",
+                    f"Connexion SMTP réussie pour\n{user}"
+                ))
+            except smtplib.SMTPAuthenticationError:
+                self.after(0, lambda: messagebox.showerror(
+                    "Gmail — Erreur d'authentification",
+                    "Le mot de passe est invalide.\n\n"
+                    "Rappel : c'est un \"Mot de passe d'application\" (16 lettres) "
+                    "généré sur myaccount.google.com/apppasswords — PAS ton mot de "
+                    "passe Gmail habituel."
+                ))
+            except Exception as e:
+                err = str(e)
+                self.after(0, lambda: messagebox.showerror(
+                    "Gmail — Erreur",
+                    f"Connexion impossible :\n{err[:200]}"
+                ))
+        threading.Thread(target=_test, daemon=True).start()
+
+    def _test_ft_connection(self):
+        """Test OAuth client_credentials sur l'API France Travail."""
+        cid = self.cfg.get("api", {}).get("ft_client_id", "").strip()
+        sec = self.cfg.get("api", {}).get("ft_client_secret", "").strip()
+        if not cid or not sec:
+            messagebox.showwarning(
+                "France Travail",
+                "Renseigne Client ID + Client Secret avant de tester."
+            )
+            return
+
+        def _test():
+            try:
+                import urllib.parse, urllib.request, json as _json
+                url = ("https://entreprise.francetravail.fr/connexion/oauth2/access_token"
+                       "?realm=%2Fpartenaire")
+                data = urllib.parse.urlencode({
+                    "grant_type": "client_credentials",
+                    "client_id": cid,
+                    "client_secret": sec,
+                    "scope": "api_offresdemploiv2 o2dsoffre"
+                }).encode()
+                req = urllib.request.Request(
+                    url, data=data,
+                    headers={"Content-Type": "application/x-www-form-urlencoded"}
+                )
+                with urllib.request.urlopen(req, timeout=10) as r:
+                    payload = _json.loads(r.read())
+                if payload.get("access_token"):
+                    self.after(0, lambda: messagebox.showinfo(
+                        "France Travail OK",
+                        "Token OAuth récupéré avec succès."
+                    ))
+                else:
+                    self.after(0, lambda: messagebox.showerror(
+                        "France Travail",
+                        f"Réponse inattendue : {str(payload)[:200]}"
+                    ))
+            except Exception as e:
+                err = str(e)
+                self.after(0, lambda: messagebox.showerror(
+                    "France Travail — Erreur",
+                    f"Connexion échouée :\n{err[:200]}"
+                ))
+        threading.Thread(target=_test, daemon=True).start()
 
     def _show_gmail_info(self):
         win = ctk.CTkToplevel(self)

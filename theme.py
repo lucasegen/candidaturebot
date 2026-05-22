@@ -19,6 +19,7 @@ from PIL import Image
 # ─── PALETTE ────────────────────────────────────────────────────
 class Colors:
     # Fonds
+    bg            = "#15151a"   # fond le plus sombre (zones intérieures)
     bg_panel      = "#1f1f23"
     bg_panel_alt  = "#28282d"
     bg_hover      = "#33333a"

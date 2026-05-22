@@ -1,6 +1,6 @@
 {
-  "version": "1.0.21",
-  "url": "https://github.com/lucasegen/candidaturebot/releases/download/v1.0.21/CandidatureBot-1.0.21.zip",
-  "notes": "Refonte complète du système d'icônes : on abandonne le dessin PIL pour utiliser les vraies icônes officielles Lucide.\n\nPipeline :\n• Téléchargement des 36 SVG Lucide depuis api.iconify.design\n• Rasterisation en PNG 96px via rsvg-convert (librsvg) en blanc\n• Bundle dans assets/icons/<alias>.png\n• Au runtime : chargement + teinte par alpha-mask (cache LRU)\n\nL'API reste identique pour gui.py : theme.icon_search(size, color), theme.ctk_icon(...) inchangés. Toutes les icônes sont maintenant pixel-perfect, anti-aliasées par rsvg-convert, et reconnaissables (loupe = loupe, engrenage = engrenage, etc.).\n\nNouveau fichier download_icons.py pour rafraîchir le set (pré-requis : brew install librsvg).",
+  "version": "1.0.22",
+  "url": "https://github.com/lucasegen/candidaturebot/releases/download/v1.0.22/CandidatureBot-1.0.22.zip",
+  "notes": "Refonte UI des pages « Mes infos » et « Paramètres » :\n\n• Mes infos : header profil avec avatar (initiales), barre de complétude (75% · manque…), layout 2 colonnes, compétences/langues en chips cliquables avec ajout/suppression, CV avec aperçu (taille, date, mots) et score ATS visible directement, footer sticky.\n\n• Paramètres : sous-onglets (Comptes / IA / Recherche / Mises à jour) au lieu d'un mega-scroll, cards par service avec logo + status dot (vert/orange/gris), boutons « Tester » inline (SMTP Gmail + OAuth France Travail), toggle ON/OFF Adzuna, footer sticky.\n\n• Nouveau widget ChipsEditor réutilisable (wrap natif via Tk Text).\n\n• Le .spec lit maintenant la version depuis version.json — fini le CFBundleShortVersionString figé à 1.0.0.",
   "released": "2026-05-22"
 }

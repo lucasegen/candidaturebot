@@ -9,11 +9,22 @@ Sortie :
     dist/CandidatureBot.app   (macOS)
     dist/CandidatureBot/      (onedir Windows/Linux)
 """
+import json
 import sys
 from pathlib import Path
 from PyInstaller.utils.hooks import collect_all, collect_submodules
 
 ROOT = Path(SPECPATH).resolve()
+
+# ─── Lecture dynamique de la version depuis version.json ────────
+# Évite la dérive entre version.json et les métadonnées macOS
+# (Get Info / "À propos") qui restaient figées à 1.0.0.
+try:
+    _vjson = json.loads((ROOT / "version.json").read_text(encoding="utf-8"))
+    APP_VERSION = _vjson.get("version", "1.0.0")
+except Exception as e:
+    print(f"[spec] Lecture version.json impossible : {e}")
+    APP_VERSION = "1.0.0"
 
 # ─── Scrapling et ses dépendances : collect_all force PyInstaller
 #     à inclure TOUS les sous-modules + data files (les imports lazy
@@ -190,10 +201,26 @@ if sys.platform == "darwin":
         info_plist={
             "CFBundleName": "Candidature Bot",
             "CFBundleDisplayName": "Candidature Bot",
-            "CFBundleVersion": "1.0.0",
-            "CFBundleShortVersionString": "1.0.0",
+            "CFBundleVersion": APP_VERSION,
+            "CFBundleShortVersionString": APP_VERSION,
             "NSHighResolutionCapable": True,
             "NSRequiresAquaSystemAppearance": False,
             "LSMinimumSystemVersion": "10.13.0",
         },
     )
+
+    # ─── Post-bundle cleanup : drivers Node.js Playwright/Patchright ──
+    # Ces dossiers (~115 Mo) sont automatiquement ajoutés par PyInstaller
+    # mais inutiles puisqu'on utilise uniquement le mode Fetcher HTTP de
+    # Scrapling — pas de browser controller en runtime.
+    import shutil
+    _app_path = ROOT / "dist" / "CandidatureBot.app"
+    for sub in ("Contents/Frameworks", "Contents/Resources"):
+        for pkg in ("patchright", "playwright"):
+            driver_dir = _app_path / sub / pkg / "driver"
+            if driver_dir.is_dir():
+                try:
+                    shutil.rmtree(driver_dir)
+                    print(f"[spec] Removed {driver_dir.relative_to(ROOT)}")
+                except Exception as e:
+                    print(f"[spec] Cleanup failed for {driver_dir}: {e}")

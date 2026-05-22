@@ -27,7 +27,7 @@ ICONS = theme
 # En mode source on retombe sur le dossier du projet pour ne pas
 # casser le développement habituel.
 CONFIG_PATH = str(app_paths.config_path())
-APP_VERSION = "1.0.17"
+APP_VERSION = "1.0.18"
 SUPPORT_EMAIL = "candidaturebot.ai@gmail.com"
 
 # 🌐 URL du manifest de mise à jour.
@@ -2344,14 +2344,71 @@ class App(ctk.CTk):
             lettre_box.insert("1.0", st["lettre"])
         self._isolate_textbox_scroll(lettre_box)
 
-        # Status label (génération)
-        status_lbl = ctk.CTkLabel(wrap, text="", text_color=THEME.text_muted,
+        # Indicateur de progression visible (spinner Braille + texte)
+        loader_row = ctk.CTkFrame(wrap, fg_color="transparent", height=24)
+        loader_row.pack(fill="x", pady=(2, 0))
+        loader_row.pack_propagate(False)
+        spinner = ctk.CTkLabel(loader_row, text="",
+                               text_color=THEME.accent,
+                               font=ctk.CTkFont(size=14, weight="bold"))
+        spinner.pack(side="left")
+        status_lbl = ctk.CTkLabel(loader_row, text="",
+                                  text_color=THEME.text_muted,
                                   font=ctk.CTkFont(size=11))
-        status_lbl.pack(anchor="w")
+        status_lbl.pack(side="left", padx=(8, 0))
+
+        FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+        st.setdefault("_step1_spinning", False)
+        st.setdefault("_step1_spin_idx", 0)
+
+        def _spin_tick():
+            if not st["_step1_spinning"]:
+                return
+            try:
+                if not spinner.winfo_exists():
+                    return
+                spinner.configure(text=FRAMES[st["_step1_spin_idx"] % len(FRAMES)])
+                st["_step1_spin_idx"] += 1
+                self.after(80, _spin_tick)
+            except Exception:
+                pass
+
+        # Refs pour pouvoir disable pendant la gen
+        regen_btn = {}
+        next_btn = {}
+        cancel_btn = {}
+
+        def _set_busy(busy):
+            st["_step1_spinning"] = busy
+            if busy:
+                status_lbl.configure(text="Génération en cours…",
+                                     text_color=THEME.accent)
+                _spin_tick()
+                try:
+                    lettre_box.configure(state="disabled",
+                                         fg_color=THEME.bg_panel_alt)
+                except Exception:
+                    pass
+                for b in (regen_btn.get("w"), next_btn.get("w"), cancel_btn.get("w")):
+                    if b is not None:
+                        try: b.configure(state="disabled")
+                        except Exception: pass
+            else:
+                spinner.configure(text="")
+                status_lbl.configure(text="✓ Généré",
+                                     text_color=THEME.green_ok)
+                try:
+                    lettre_box.configure(state="normal",
+                                         fg_color=THEME.bg_panel)
+                except Exception:
+                    pass
+                for b in (regen_btn.get("w"), next_btn.get("w"), cancel_btn.get("w")):
+                    if b is not None:
+                        try: b.configure(state="normal")
+                        except Exception: pass
 
         def _regen():
-            status_lbl.configure(text="Génération en cours…",
-                                 text_color=THEME.text_muted)
+            _set_busy(True)
             offre = self.cfg["candidatures"][st["idx"]]
             def task():
                 try:
@@ -2365,11 +2422,12 @@ class App(ctk.CTk):
                 def _apply():
                     if not lettre_box.winfo_exists():
                         return
+                    try: lettre_box.configure(state="normal")
+                    except Exception: pass
                     lettre_box.delete("1.0", "end")
                     lettre_box.insert("1.0", txt)
                     st["lettre"] = txt
-                    status_lbl.configure(text="✓ Généré",
-                                         text_color=THEME.green_ok)
+                    _set_busy(False)
                 self.after(0, _apply)
             threading.Thread(target=task, daemon=True).start()
 
@@ -2378,28 +2436,29 @@ class App(ctk.CTk):
             self.after(150, _regen)
 
         # ── Footer : Annuler [G] · Régénérer [Centre] · Suivant [D]
-        ctk.CTkButton(
+        cancel_btn["w"] = ctk.CTkButton(
             footer, text="Annuler",
             command=lambda: (setattr(self, "_workflow_win", None), win.destroy()),
             height=36, corner_radius=18, width=110,
             fg_color="transparent", hover_color=THEME.bg_hover,
             border_width=1, border_color=THEME.border,
             text_color=THEME.text_secondary
-        ).pack(side="left", padx=20, pady=16)
+        )
+        cancel_btn["w"].pack(side="left", padx=20, pady=16)
 
         def _next():
             st["lettre"] = lettre_box.get("1.0", "end").strip()
             st["step"] = 2
             render()
-        ctk.CTkButton(
+        next_btn["w"] = ctk.CTkButton(
             footer, text="Suivant : Mail →",
             command=_next, height=36, corner_radius=18, width=170,
             fg_color=THEME.accent, hover_color=THEME.accent_hover,
             font=ctk.CTkFont(size=13, weight="bold")
-        ).pack(side="right", padx=20, pady=16)
+        )
+        next_btn["w"].pack(side="right", padx=20, pady=16)
 
-        # Régénérer centré entre Annuler et Suivant (pack avec expand)
-        ctk.CTkButton(
+        regen_btn["w"] = ctk.CTkButton(
             footer, text="Régénérer",
             image=theme.ctk_icon(theme.icon_refresh, size=14,
                                  color=THEME.text_primary),
@@ -2408,7 +2467,8 @@ class App(ctk.CTk):
             fg_color=THEME.bg_panel_alt, hover_color=THEME.bg_hover,
             text_color=THEME.text_primary,
             font=ctk.CTkFont(size=12, weight="bold")
-        ).pack(expand=True, pady=16)
+        )
+        regen_btn["w"].pack(expand=True, pady=16)
 
     def _wf_step2_mail(self, body, footer, st, render, win):
         """Étape 2 : mail d'accompagnement."""
@@ -2430,12 +2490,73 @@ class App(ctk.CTk):
             mail_box.insert("1.0", st["mail"])
         self._isolate_textbox_scroll(mail_box)
 
-        status_lbl = ctk.CTkLabel(wrap, text="", text_color=THEME.text_muted,
+        # Indicateur de progression visible (loader + texte)
+        loader_row = ctk.CTkFrame(wrap, fg_color="transparent", height=24)
+        loader_row.pack(fill="x", pady=(2, 0))
+        loader_row.pack_propagate(False)
+        spinner = ctk.CTkLabel(loader_row, text="",
+                               text_color=THEME.accent,
+                               font=ctk.CTkFont(size=14, weight="bold"))
+        spinner.pack(side="left")
+        status_lbl = ctk.CTkLabel(loader_row, text="",
+                                  text_color=THEME.text_muted,
                                   font=ctk.CTkFont(size=11))
-        status_lbl.pack(anchor="w")
+        status_lbl.pack(side="left", padx=(8, 0))
+
+        # Animation spinner (Braille rotation)
+        FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+        st.setdefault("_step2_spin_idx", 0)
+        st.setdefault("_step2_spinning", False)
+        st.setdefault("_step2_after_id", None)
+
+        def _spin_tick():
+            if not st["_step2_spinning"]:
+                return
+            try:
+                if not spinner.winfo_exists():
+                    return
+                spinner.configure(text=FRAMES[st["_step2_spin_idx"] % len(FRAMES)])
+                st["_step2_spin_idx"] += 1
+                st["_step2_after_id"] = self.after(80, _spin_tick)
+            except Exception:
+                pass
+
+        # Boutons (déclarés ici pour pouvoir les désactiver pendant la gen)
+        regen_btn = {}
+        next_btn = {}
+        back_btn = {}
+
+        def _set_busy(busy):
+            st["_step2_spinning"] = busy
+            if busy:
+                status_lbl.configure(text="Génération en cours…",
+                                     text_color=THEME.accent)
+                _spin_tick()
+                try:
+                    mail_box.configure(state="disabled",
+                                       fg_color=THEME.bg_panel_alt)
+                except Exception:
+                    pass
+                for b in (regen_btn.get("w"), next_btn.get("w"), back_btn.get("w")):
+                    if b is not None:
+                        try: b.configure(state="disabled")
+                        except Exception: pass
+            else:
+                spinner.configure(text="")
+                status_lbl.configure(text="✓ Généré",
+                                     text_color=THEME.green_ok)
+                try:
+                    mail_box.configure(state="normal",
+                                       fg_color=THEME.bg_panel)
+                except Exception:
+                    pass
+                for b in (regen_btn.get("w"), next_btn.get("w"), back_btn.get("w")):
+                    if b is not None:
+                        try: b.configure(state="normal")
+                        except Exception: pass
 
         def _regen():
-            status_lbl.configure(text="Génération en cours…")
+            _set_busy(True)
             offre = self.cfg["candidatures"][st["idx"]]
             def task():
                 try:
@@ -2447,25 +2568,21 @@ class App(ctk.CTk):
                 def _apply():
                     if not mail_box.winfo_exists():
                         return
+                    # Activer temporairement pour pouvoir écrire
+                    try: mail_box.configure(state="normal")
+                    except Exception: pass
                     mail_box.delete("1.0", "end")
                     mail_box.insert("1.0", txt)
-                    status_lbl.configure(text="✓ Généré",
-                                         text_color=THEME.green_ok)
+                    st["mail"] = txt
+                    _set_busy(False)
                 self.after(0, _apply)
             threading.Thread(target=task, daemon=True).start()
 
-        ctk.CTkButton(
-            wrap, text="Régénérer",
-            image=theme.ctk_icon(theme.icon_refresh, size=14,
-                                 color=THEME.text_primary),
-            compound="left",
-            command=_regen, height=32, width=130, corner_radius=16,
-            fg_color=THEME.bg_panel, hover_color=THEME.bg_hover,
-            text_color=THEME.text_primary,
-            font=ctk.CTkFont(size=12, weight="bold")
-        ).pack(anchor="w", pady=(6, 0))
+        # Auto-gen à l'ouverture si vide
+        if not st.get("mail"):
+            self.after(150, _regen)
 
-        # Footer
+        # ── Footer : Précédent [G] · Régénérer [Centre] · Suivant [D]
         def _back():
             st["mail"] = mail_box.get("1.0", "end").strip()
             st["step"] = 1
@@ -2474,19 +2591,32 @@ class App(ctk.CTk):
             st["mail"] = mail_box.get("1.0", "end").strip()
             st["step"] = 3
             render()
-        ctk.CTkButton(
+        back_btn["w"] = ctk.CTkButton(
             footer, text="← Précédent", command=_back,
             height=36, corner_radius=18, width=130,
             fg_color="transparent", hover_color=THEME.bg_hover,
             border_width=1, border_color=THEME.border,
             text_color=THEME.text_secondary
-        ).pack(side="left", padx=20, pady=16)
-        ctk.CTkButton(
+        )
+        back_btn["w"].pack(side="left", padx=20, pady=16)
+        next_btn["w"] = ctk.CTkButton(
             footer, text="Suivant : Envoi →", command=_next,
             height=36, corner_radius=18, width=170,
             fg_color=THEME.accent, hover_color=THEME.accent_hover,
             font=ctk.CTkFont(size=13, weight="bold")
-        ).pack(side="right", padx=20, pady=16)
+        )
+        next_btn["w"].pack(side="right", padx=20, pady=16)
+        regen_btn["w"] = ctk.CTkButton(
+            footer, text="Régénérer",
+            image=theme.ctk_icon(theme.icon_refresh, size=14,
+                                 color=THEME.text_primary),
+            compound="left",
+            command=_regen, height=36, width=140, corner_radius=18,
+            fg_color=THEME.bg_panel_alt, hover_color=THEME.bg_hover,
+            text_color=THEME.text_primary,
+            font=ctk.CTkFont(size=12, weight="bold")
+        )
+        regen_btn["w"].pack(expand=True, pady=16)
 
     def _wf_step3_envoi(self, body, footer, st, render, win):
         """Étape 3 : envoi (adaptatif selon présence email)."""
@@ -3650,25 +3780,35 @@ class App(ctk.CTk):
     # 🖱️ Scroll helper : isole le wheel d'un textbox du parent
     # ══════════════════════════════════════════════════════════
     def _isolate_textbox_scroll(self, textbox):
-        """Empêche un CTkTextbox de propager les événements de molette
-        au CTkScrollableFrame parent : quand le curseur est sur le
-        textbox, seul son contenu défile."""
+        """Quand le curseur est sur le textbox :
+        - si son contenu déborde → on scrolle dedans + on stoppe la propagation
+        - si tout tient déjà dedans (yview = (0, 1)) → on laisse passer la
+          molette au parent scrollable (sinon impossible de scroller la
+          fenêtre quand on est au-dessus d'un textbox court)."""
         inner = getattr(textbox, "_textbox", None)
         if inner is None:
             return
 
         def _on_wheel(event):
             try:
-                # macOS : delta petit (souvent 1)
-                # Windows : delta = ±120 par cran
-                # Linux : pas de delta, event.num = 4 (haut) / 5 (bas)
+                top, bot = inner.yview()
+                overflowing = not (top <= 1e-3 and bot >= 1 - 1e-3)
+                if not overflowing:
+                    return  # ne pas break → parent reçoit la molette
+                # Direction
+                step = 0
                 if getattr(event, "num", None) == 4:
-                    inner.yview_scroll(-3, "units")
+                    step = -3
                 elif getattr(event, "num", None) == 5:
-                    inner.yview_scroll(3, "units")
+                    step = 3
                 elif getattr(event, "delta", 0):
-                    direction = -1 if event.delta > 0 else 1
-                    inner.yview_scroll(direction * 3, "units")
+                    step = -3 if event.delta > 0 else 3
+                # Empêche d'aller au-delà des bornes (sinon "stuck")
+                going_up_at_top = step < 0 and top <= 1e-3
+                going_down_at_bot = step > 0 and bot >= 1 - 1e-3
+                if going_up_at_top or going_down_at_bot:
+                    return  # bord atteint → propage au parent
+                inner.yview_scroll(step, "units")
             except Exception:
                 pass
             return "break"

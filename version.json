@@ -1,6 +1,6 @@
 {
-  "version": "1.0.17",
-  "url": "https://github.com/lucasegen/candidaturebot/releases/download/v1.0.17/CandidatureBot-1.0.17.zip",
-  "notes": "3 fixes UX page Candidatures :\n\n• Toute la ligne d'une candidature est cliquable (entreprise/poste/lieu/fond), pas seulement les libellés. Hover change la couleur de fond. Checkbox / dropdown statut / bouton Voir gardent leurs propres actions.\n• La lettre se génère automatiquement à l'ouverture du workflow (étape 1) avec le ton sélectionné — plus besoin de cliquer Régénérer manuellement.\n• Bouton Régénérer déplacé dans le footer, centré entre Annuler (gauche) et Suivant (droite).",
+  "version": "1.0.18",
+  "url": "https://github.com/lucasegen/candidaturebot/releases/download/v1.0.18/CandidatureBot-1.0.18.zip",
+  "notes": "3 fixes UX workflow :\n\n• Indicateur de génération clair : spinner animé Braille (⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏) + textbox grisé pendant la génération + boutons désactivés. On ne se demande plus si quelque chose se passe.\n• Bouton 'Régénérer' centré dans le footer pour l'étape 2 (Mail) aussi, comme pour l'étape 1.\n• Scroll molette dans les zones texte fixé : si le textbox ne déborde pas, la molette est propagée au parent → on peut scroller la fenêtre même quand le curseur est sur le texte.",
   "released": "2026-05-22"
 }
